@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
-np.random.seed(42)
+import itertools
+from tqdm import tqdm
 
 GRID = np.array([
     [1, 1, -1, 1, 1, 1, 1, 1],
@@ -23,54 +23,60 @@ STILL = lambda pos: pos
 
 
 # TODO: Fix reward for blocked paths
-def compute_reward(player_position, minotaur_position):
-    walls = np.count_nonzero(GRID[player_position[0]:EXIT[0], player_position[1]] == -1)
-    walls += np.count_nonzero(GRID[EXIT[0], player_position[1]:EXIT[1]] == -1)
-    distance = walls * -100 + abs(player_position[0] - EXIT[0]) + abs(player_position[1] - EXIT[1])
-    if player_position == minotaur_position:
-        return float('-inf')
-    elif distance == 0:
-        return float('inf')
+def compute_reward(state):
+    if state[0] == state[1]:
+        return -100
+    elif state[0] == EXIT:
+        return 1
     else:
-        return 10 / distance
+        return -1
 
 
-def bellman(time, max_time, player, minotaur):
-    if time != max_time:
-        states_reward = []
-        actions = player.possible_moves()
-        minotaur_moves = minotaur.possible_moves()  # Generating possible minotaur moves
-        for action in actions:
-            next_player = Player()
-            next_player.position = action  # Updating player state with new action
-            reward = compute_reward(next_player.position, minotaur.position)
-            next_states_reward = []
-            for move in minotaur_moves:
-                next_minotaur = Minotaur()
-                next_minotaur.position = move
-                next_states_reward.append((1 / len(minotaur_moves)) *
-                                          bellman(time + 1, max_time, next_player, next_minotaur)[0])
-            states_reward.append(reward + sum(next_states_reward))
-        best_action = states_reward.index(max(states_reward))
+def bellman(max_time):
+    rows, columns = np.where(GRID == 1)
+    possible_player_positions = [(x, y) for x, y in zip(rows, columns)]
+    rows, columns = np.where(GRID)
+    possible_minotaur_positions = [(x, y) for x, y in zip(rows, columns)]
+    possible_states = list(itertools.product(possible_player_positions, possible_minotaur_positions))
+    states = {}
+    for idx, state in enumerate(possible_states):
+        states[state] = idx
+    u_star = np.zeros((len(possible_states), max_time))
+    value = np.empty((), dtype=object)
+    value[()] = (0, 0)
+    a_star = np.full((u_star.shape[0], u_star.shape[1] - 1), value, dtype=object)
 
-        return states_reward[best_action], actions[best_action]
+    for time in tqdm(reversed(range(max_time))):
+        if time == max_time - 1:  # Last state: only reward is computed
+            for state in possible_states:
+                u_star[states[state], time] = compute_reward(state)
+        else:
+            for state in possible_states:
+                rewards = []
+                player = Player()
+                player.position = state[0]
+                p_actions = player.possible_moves()
+                minotaur = Minotaur()
+                minotaur.position = state[1]
+                m_actions = minotaur.possible_moves()
+                for action in p_actions:
+                    reward = compute_reward(state)  # TODO: Check this reward
+                    next_possible_states = list(itertools.product([action], m_actions))
+                    for next_state in next_possible_states:
+                        reward += (1 / len(next_possible_states)) * u_star[states[next_state], time + 1]
+                    rewards.append(reward)
+                u = max(rewards)
+                a = rewards.index(u)
+                u_star[states[state], time] = u
+                a_star[states[state], time] = p_actions[a]
 
-    else:
-        states_reward = []
-        actions = player.possible_moves()
-        for action in actions:
-            next_player = Player()
-            next_player.position = action  # Updating player state with new action
-            states_reward.append(compute_reward(next_player.position, minotaur.position))
-        best_action = states_reward.index(max(states_reward))
-
-        return states_reward[best_action], actions[best_action]
+    return u_star, a_star, states
 
 
 class Minotaur:
     def __init__(self):
         self.position = (6, 5)
-        self.actions = [UP, DOWN, LEFT, RIGHT]
+        self.actions = [UP, DOWN, LEFT, RIGHT, STILL]
 
     def possible_moves(self):
         moves = []
@@ -113,7 +119,7 @@ def plot_grid(player_pos, minotaur_pos):
     ax.text(y=EXIT[0]+0.3, x=EXIT[1], s="Exit", va='center', ha='center', fontsize=10, color='g')
     ax.imshow(GRID, cmap="gray")
     plt.show(block=False)
-    plt.pause(0.1)
+    plt.pause(0.25)
     plt.close()
 
 
@@ -124,10 +130,9 @@ def main():
     minotaur_positions = [minotaur.position]
     time = 0
     max_time = 20
-    while time <= max_time:
-        print("Iteration ", time)
-        reward, action = bellman(time, time + 2, player, minotaur)
-        player.position = action
+    u_star, a_star, states = bellman(max_time)
+    while time < max_time - 1:
+        player.position = a_star[states[(player.position, minotaur.position)], time]
         player_positions.append(player.position)
         minotaur.position = minotaur.generate_move()
         minotaur_positions.append(minotaur.position)
@@ -136,6 +141,7 @@ def main():
             for i in range(len(player_positions)):
                 plot_grid(player_positions[i], minotaur_positions[i])
             print("Winner!")
+            print("Won after " + str(time) + " actions.")
             exit(0)
         elif player.position == minotaur.position:
             for i in range(len(player_positions)):
