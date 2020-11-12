@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-np.random.seed(1337)
+np.random.seed(42)
 
 GRID = np.array([
     [1, 1, -1, 1, 1, 1, 1, 1],
@@ -22,8 +22,11 @@ RIGHT = lambda pos: (pos[0], pos[1] + 1)
 STILL = lambda pos: pos
 
 
+# TODO: Fix reward for blocked paths
 def compute_reward(player_position, minotaur_position):
-    distance = abs(player_position[0] - EXIT[0]) + abs(player_position[1] - EXIT[1])
+    walls = np.count_nonzero(GRID[player_position[0]:EXIT[0], player_position[1]] == -1)
+    walls += np.count_nonzero(GRID[EXIT[0], player_position[1]:EXIT[1]] == -1)
+    distance = walls * -100 + abs(player_position[0] - EXIT[0]) + abs(player_position[1] - EXIT[1])
     if player_position == minotaur_position:
         return float('-inf')
     elif distance == 0:
@@ -110,7 +113,8 @@ def plot_grid(player_pos, minotaur_pos):
     ax.text(y=EXIT[0]+0.3, x=EXIT[1], s="Exit", va='center', ha='center', fontsize=10, color='g')
     ax.imshow(GRID, cmap="gray")
     plt.show(block=False)
-    plt.pause(0.25)
+    plt.pause(0.1)
+    plt.close()
 
 
 def main():
@@ -119,15 +123,16 @@ def main():
     player_positions = [player.position]
     minotaur_positions = [minotaur.position]
     time = 0
-    max_time = 6
+    max_time = 20
     while time <= max_time:
-        reward, action = bellman(time, max_time, player, minotaur)
+        print("Iteration ", time)
+        reward, action = bellman(time, time + 2, player, minotaur)
         player.position = action
         player_positions.append(player.position)
         minotaur.position = minotaur.generate_move()
         minotaur_positions.append(minotaur.position)
         time += 1
-        if reward == float('inf'):
+        if player.position == EXIT:
             for i in range(len(player_positions)):
                 plot_grid(player_positions[i], minotaur_positions[i])
             print("Winner!")
