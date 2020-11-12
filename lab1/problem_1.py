@@ -110,29 +110,37 @@ def plot_grid(player_pos, minotaur_pos):
     ax.text(y=EXIT[0]+0.3, x=EXIT[1], s="Exit", va='center', ha='center', fontsize=10, color='g')
     ax.imshow(GRID, cmap="gray")
     plt.show(block=False)
-    plt.pause(0.2)
+    plt.pause(0.25)
 
 
 def main():
     player = Player()
     minotaur = Minotaur()
+    player_positions = [player.position]
+    minotaur_positions = [minotaur.position]
     time = 0
-    max_time = 4
-    reward = 0
-
-    while player.position != minotaur.position and time <= max_time:
+    max_time = 6
+    while time <= max_time:
         reward, action = bellman(time, max_time, player, minotaur)
         player.position = action
+        player_positions.append(player.position)
         minotaur.position = minotaur.generate_move()
-        plot_grid(player.position, minotaur.position)
+        minotaur_positions.append(minotaur.position)
         time += 1
-    if player.position == minotaur.position:
-        print("Game Over!")
-        exit(0)
-    if reward != float('inf'):
-        print("You did not reach the exit in time!")
-        exit(0)
-    print("Winner!")
+        if reward == float('inf'):
+            for i in range(len(player_positions)):
+                plot_grid(player_positions[i], minotaur_positions[i])
+            print("Winner!")
+            exit(0)
+        elif player.position == minotaur.position:
+            for i in range(len(player_positions)):
+                plot_grid(player_positions[i], minotaur_positions[i])
+            print("Game Over!")
+            exit(0)
+    for i in range(len(player_positions)):
+        plot_grid(player_positions[i], minotaur_positions[i])
+    print("You did not reach the exit in time!")
+    exit(0)
 
 
 if __name__ == "__main__":
