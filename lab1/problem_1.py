@@ -34,10 +34,8 @@ def compute_reward(state):
 
 def bellman(max_time):
     rows, columns = np.where(GRID == 1)
-    possible_player_positions = [(x, y) for x, y in zip(rows, columns)]
-    rows, columns = np.where(GRID)
-    possible_minotaur_positions = [(x, y) for x, y in zip(rows, columns)]
-    possible_states = list(itertools.product(possible_player_positions, possible_minotaur_positions))
+    possible_moves = [(x, y) for x, y in zip(rows, columns)]
+    possible_states = list(itertools.product(possible_moves, possible_moves))
     states = {}
     for idx, state in enumerate(possible_states):
         states[state] = idx
@@ -82,17 +80,18 @@ class Minotaur:
         moves = []
         for action in self.actions:
             move = action(self.position)
-            if (- 1 < move[0] < GRID.shape[0]) and (- 1 < move[1] < GRID.shape[1]):
+            if (- 1 < move[0] < GRID.shape[0]) and (- 1 < move[1] < GRID.shape[1]) and (GRID[move[0], move[1]] != -1):
                 moves.append(move)
+            else:
+                move = action(move)
+                if (- 1 < move[0] < GRID.shape[0]) and (- 1 < move[1] < GRID.shape[1]) and \
+                        (GRID[move[0], move[1]] != -1):
+                    moves.append(move)
 
         return moves
 
     def generate_move(self):
-        moves = []
-        for action in self.actions:
-            move = action(self.position)
-            if (- 1 < move[0] < GRID.shape[0]) and (- 1 < move[1] < GRID.shape[1]):
-                moves.append(move)
+        moves = self.possible_moves()
 
         return moves[np.random.choice(np.arange(len(moves)))]
 
@@ -119,7 +118,7 @@ def plot_grid(player_pos, minotaur_pos):
     ax.text(y=EXIT[0]+0.3, x=EXIT[1], s="Exit", va='center', ha='center', fontsize=10, color='g')
     ax.imshow(GRID, cmap="gray")
     plt.show(block=False)
-    plt.pause(0.25)
+    plt.pause(0.35)
     plt.close()
 
 
