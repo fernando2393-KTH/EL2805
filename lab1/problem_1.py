@@ -21,6 +21,7 @@ RIGHT = lambda pos: (pos[0], pos[1] + 1)
 STILL = lambda pos: pos
 FINITE = True
 
+
 def compute_reward(state):
     if state[0] == state[1]:
         return 0
