@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import itertools
 from tqdm import tqdm
 
+PLOTTING = False
+
 GRID = np.array([
     [1, 1, -1, 1, 1, 1, 1, 1],
     [1, 1, -1, 1, 1, -1, 1, 1],
@@ -42,7 +44,7 @@ def bellman(max_time):
     value = np.empty((), dtype=object)
     value[()] = (0, 0)
     a_star = np.full((u_star.shape[0], u_star.shape[1] - 1), value, dtype=object)
-    for time in tqdm(reversed(range(max_time))):
+    for time in reversed(range(max_time)):
         if time == max_time - 1:  # Last state: only reward is computed
             for state in possible_states:
                 u_star[states[state], time] = compute_reward(state)
@@ -132,42 +134,43 @@ def main():
     # Tolerance error
     tol = (1 - gamma) * epsilon / gamma
 
-    # Initialize players
-    player = Player()
-    minotaur = Minotaur()
-    player_positions = [player.position]
-    minotaur_positions = [minotaur.position]
+    probabilities = []
+    max_time = 20
 
-    if FINITE:
+    for max_t in tqdm(range(1, max_time)):
         time = 0
-        max_time = 20
-        u_star, a_star, states = bellman(max_time)
-        probabilities = []
-        while time < max_time - 1:
-            probabilities.append(u_star[states[(player.position, minotaur.position)], time])
-            print(probabilities[-1])
+        # Initialize players
+        player = Player()
+        minotaur = Minotaur()
+        player_positions = [player.position]
+        minotaur_positions = [minotaur.position]
+        u_star, a_star, states = bellman(max_t)
+        probabilities.append(u_star[states[(player.position, minotaur.position)], time])
+        while time < max_t - 1:
             player.position = a_star[states[(player.position, minotaur.position)], time]
             player_positions.append(player.position)
             if player.position != (EXIT or minotaur.position):
                 minotaur.position = minotaur.generate_move()
             minotaur_positions.append(minotaur.position)
             time += 1
-        plt.plot(range(1, len(probabilities) + 1), probabilities)
-        plt.title("Probability vs Time")
-        plt.xticks(np.arange(1, len(probabilities) + 1))
-        plt.xlabel("Time")
-        plt.ylabel("Probability")
-        plt.show()
-        for i in range(len(player_positions)):
-            plot_grid(player_positions[i], minotaur_positions[i])
-            if player_positions[i] == minotaur_positions[i]:
-                print("Game Over!")
-                exit(0)
-            elif player_positions[i] == EXIT:
-                print("Winner!")
-                print("Won after " + str(i) + " actions.")
-                exit(0)
-        print("You did not reach the exit in time!")
+        if PLOTTING:
+            for i in range(len(player_positions)):
+                plot_grid(player_positions[i], minotaur_positions[i])
+                if player_positions[i] == minotaur_positions[i]:
+                    print("Game Over!")
+                    exit(0)
+                elif player_positions[i] == EXIT:
+                    print("Winner!")
+                    print("Won after " + str(i) + " actions.")
+                    exit(0)
+            print("You did not reach the exit in time!")
+
+    plt.plot(range(1, len(probabilities) + 1), probabilities)
+    plt.title("Probability vs Maximum Time")
+    plt.xticks(np.arange(1, len(probabilities) + 1))
+    plt.xlabel("Maximum Time")
+    plt.ylabel("Probability")
+    plt.show()
 
 
 if __name__ == "__main__":
