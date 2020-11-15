@@ -14,28 +14,28 @@ GRID = np.array([
 ])
 
 EXIT = (6, 5)
-
 UP = lambda pos: (pos[0] + 1, pos[1])
 DOWN = lambda pos: (pos[0] - 1, pos[1])
 LEFT = lambda pos: (pos[0], pos[1] - 1)
 RIGHT = lambda pos: (pos[0], pos[1] + 1)
 STILL = lambda pos: pos
+FINITE = True
 
-
-# TODO: Fix reward for blocked paths
 def compute_reward(state):
     if state[0] == state[1]:
-        return -100
+        return 0
     elif state[0] == EXIT:
-        return 1
+        return 0
     else:
-        return -1
+        return 1
 
 
 def bellman(max_time):
     rows, columns = np.where(GRID == 1)
-    possible_moves = [(x, y) for x, y in zip(rows, columns)]
-    possible_states = list(itertools.product(possible_moves, possible_moves))
+    possible_player_positions = [(x, y) for x, y in zip(rows, columns)]
+    rows, columns = np.where(GRID)
+    possible_minotaur_positions = [(x, y) for x, y in zip(rows, columns)]
+    possible_states = list(itertools.product(possible_player_positions, possible_minotaur_positions))
     states = {}
     for idx, state in enumerate(possible_states):
         states[state] = idx
@@ -58,7 +58,7 @@ def bellman(max_time):
                 minotaur.position = state[1]
                 m_actions = minotaur.possible_moves()
                 for action in p_actions:
-                    reward = compute_reward(state)  # TODO: Check this reward
+                    reward = compute_reward(state)
                     next_possible_states = list(itertools.product([action], m_actions))
                     for next_state in next_possible_states:
                         reward += (1 / len(next_possible_states)) * u_star[states[next_state], time + 1]
@@ -80,18 +80,17 @@ class Minotaur:
         moves = []
         for action in self.actions:
             move = action(self.position)
-            if (- 1 < move[0] < GRID.shape[0]) and (- 1 < move[1] < GRID.shape[1]) and (GRID[move[0], move[1]] != -1):
+            if (- 1 < move[0] < GRID.shape[0]) and (- 1 < move[1] < GRID.shape[1]):
                 moves.append(move)
-            else:
-                move = action(move)
-                if (- 1 < move[0] < GRID.shape[0]) and (- 1 < move[1] < GRID.shape[1]) and \
-                        (GRID[move[0], move[1]] != -1):
-                    moves.append(move)
 
         return moves
 
     def generate_move(self):
-        moves = self.possible_moves()
+        moves = []
+        for action in self.actions:
+            move = action(self.position)
+            if (- 1 < move[0] < GRID.shape[0]) and (- 1 < move[1] < GRID.shape[1]):
+                moves.append(move)
 
         return moves[np.random.choice(np.arange(len(moves)))]
 
@@ -118,39 +117,54 @@ def plot_grid(player_pos, minotaur_pos):
     ax.text(y=EXIT[0]+0.3, x=EXIT[1], s="Exit", va='center', ha='center', fontsize=10, color='g')
     ax.imshow(GRID, cmap="gray")
     plt.show(block=False)
-    plt.pause(0.35)
+    plt.pause(0.25)
     plt.close()
 
 
 def main():
+    # Discount Factor 
+    gamma   = 0.95
+    # Accuracy treshold 
+    epsilon = 0.0001
+    # Tolerance error
+    tol = (1 - gamma) * epsilon/gamma
+
+    # Initialize players
     player = Player()
     minotaur = Minotaur()
     player_positions = [player.position]
     minotaur_positions = [minotaur.position]
-    time = 0
-    max_time = 20
-    u_star, a_star, states = bellman(max_time)
-    while time < max_time - 1:
-        player.position = a_star[states[(player.position, minotaur.position)], time]
-        player_positions.append(player.position)
-        minotaur.position = minotaur.generate_move()
-        minotaur_positions.append(minotaur.position)
-        time += 1
-        if player.position == EXIT:
-            for i in range(len(player_positions)):
-                plot_grid(player_positions[i], minotaur_positions[i])
-            print("Winner!")
-            print("Won after " + str(time) + " actions.")
-            exit(0)
-        elif player.position == minotaur.position:
-            for i in range(len(player_positions)):
-                plot_grid(player_positions[i], minotaur_positions[i])
-            print("Game Over!")
-            exit(0)
-    for i in range(len(player_positions)):
-        plot_grid(player_positions[i], minotaur_positions[i])
-    print("You did not reach the exit in time!")
-    exit(0)
+
+    if FINITE:
+        time = 0
+        max_time = 20
+        u_star, a_star, states = bellman(max_time)
+        while time < max_time - 1:
+            player.position = a_star[states[(player.position, minotaur.position)], time]
+            player_positions.append(player.position)
+            minotaur.position = minotaur.generate_move()
+            minotaur_positions.append(minotaur.position)
+            time += 1
+            if player.position == EXIT:
+                for i in range(len(player_positions)):
+                    plot_grid(player_positions[i], minotaur_positions[i])
+                print("Winner!")
+                print("Won after " + str(time) + " actions.")
+                exit(0)
+            elif player.position == minotaur.position:
+                for i in range(len(player_positions)):
+                    plot_grid(player_positions[i], minotaur_positions[i])
+                print("Game Over!")
+                exit(0)
+        for i in range(len(player_positions)):
+            plot_grid(player_positions[i], minotaur_positions[i])
+        print("You did not reach the exit in time!")
+        exit(0)
+    #else:
+        # Draw life stamp by geometrical distribution
+        #mean_life = 30
+        #simulations = 10 ** 4
+        #life_time = np.random.geometric(p = 1/mean_life, size = simulations)
 
 
 if __name__ == "__main__":
