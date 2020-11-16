@@ -21,9 +21,6 @@ PLAYER_POS = (0, 0)
 POLICE_POS = (1, 2)
 MAX_IT = 1000
 
-np.random.seed(1337)
-
-
 def compute_reward(state):
     if state[0] == state[1]:
         return -50
@@ -81,7 +78,7 @@ def value_iteration(possible_states, states, gamma, tolerance):
         n += 1
     # Return the best possible moves for each state
     print("error: ", np.linalg.norm(V - best_V))
-    return best_policy
+    return best_policy, best_V[states[(PLAYER_POS, POLICE_POS)]]
 
 
 class Player:
@@ -143,10 +140,12 @@ def main():
     gammas = np.round(np.arange(0, 1, 0.05), 2)
     possible_states, states = get_possible_states()
     rewards = [[] for _ in range(len(gammas))]
+    best_values = []
     for idx, gamma in tqdm(enumerate(gammas)):
         it = 0
         tolerance = (1 - gamma) * epsilon / (gamma + np.finfo(float).eps)
-        best_policy = value_iteration(possible_states, states, gamma, tolerance)
+        best_policy, best_value = value_iteration(possible_states, states, gamma, tolerance)
+        best_values.append(best_value)
         player = Player()
         police = Police()
         accumulative_reward = 0
@@ -166,9 +165,15 @@ def main():
     for idx, reward in enumerate(rewards):
         plt.plot(range(MAX_IT), reward, label="Gamma=" + str(gammas[idx]))
     plt.legend()
-    plt.title("Value Function w.r.t gamma")
+    plt.title("Reward w.r.t gamma")
     plt.xlabel("Time")
     plt.ylabel("Reward")
+    plt.show()
+
+    plt.plot(gammas, best_values)
+    plt.title("Value Function w.r.t gamma")
+    plt.xlabel("Gamma")
+    plt.ylabel("Value")
     plt.show()
 
 
