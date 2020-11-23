@@ -17,8 +17,8 @@ GRID = np.array([
 ])
 
 EXIT = (6, 5)
-UP = lambda pos: (pos[0] + 1, pos[1])
-DOWN = lambda pos: (pos[0] - 1, pos[1])
+UP = lambda pos: (pos[0] - 1, pos[1])
+DOWN = lambda pos: (pos[0] + 1, pos[1])
 LEFT = lambda pos: (pos[0], pos[1] - 1)
 RIGHT = lambda pos: (pos[0], pos[1] + 1)
 STILL = lambda pos: pos

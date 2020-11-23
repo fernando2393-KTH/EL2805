@@ -11,8 +11,8 @@ GRID = np.array([
     [1, 0, 0, 0, 0, 1]
 ])
 
-UP = lambda pos: (pos[0] + 1, pos[1])
-DOWN = lambda pos: (pos[0] - 1, pos[1])
+UP = lambda pos: (pos[0] - 1, pos[1])
+DOWN = lambda pos: (pos[0] + 1, pos[1])
 LEFT = lambda pos: (pos[0], pos[1] - 1)
 RIGHT = lambda pos: (pos[0], pos[1] + 1)
 STILL = lambda pos: pos
@@ -20,6 +20,7 @@ STILL = lambda pos: pos
 PLAYER_POS = (0, 0)
 POLICE_POS = (1, 2)
 MAX_IT = 1000
+
 
 def compute_reward(state):
     if state[0] == state[1]:
