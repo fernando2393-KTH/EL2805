@@ -230,7 +230,8 @@ def main():
         plt.legend()
         plt.xlabel("Time")
         plt.ylabel("Value function")
-    plt.show()
+    plt.savefig("Results/Problem3/Q_learning.png')
+    plt.close()
     '''
 
     #---- Train with SARSA ----#
@@ -238,7 +239,7 @@ def main():
     Q_init = initialize_Q(possible_states, player.actions, sarsa = True)
 
     # Grid search
-    epsilon_grid = np.round(np.arange(0.1, 1, 0.1), 2)
+    epsilon_grid = np.round(np.arange(0.0, 1, 0.1), 2)
     for epsilon in epsilon_grid:
         # Reset player and polcie
         player = Player()
