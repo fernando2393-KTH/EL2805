@@ -34,8 +34,13 @@ def compute_reward(state):
         return 0
 
 
-def initialize_Q(states, possible_actions):
-    return np.zeros((len(states), len(possible_actions)))
+def initialize_Q(states, possible_actions, sarsa = True):
+    if sarsa:
+        # Initialize correctly --> Zero to impossible moves
+        Q = np.random.rand(len(states), len(possible_actions))
+    else:
+        Q = np.zeros((len(states), len(possible_actions)))
+    return Q
 
 
 def get_possible_states():
@@ -124,8 +129,73 @@ def Q_Learning(Q, discount, states, player, police):
         pbar.update(1)
     pbar.close()
 
-    return best_q_initial_state, Q, alpha
+    return best_q_initial_state, Q
 
+def epsilon_greedy(Q, epsilon, next_player_action, states, current_state):
+    # Explore randomly with probability epsilon, otherwise exploit the best policy for that state
+    if np.random.rand() < epsilon:
+        action = np.random.choice(next_player_action)
+    else:
+        try:
+            action_max = max(Q[states[current_state], next_player_action])
+            action = np.where(Q[states[current_state]] == action_max)[0][0]
+        except:
+            print(next_player_action)
+            print(Q[states[current_state]])
+            print(max(Q[states[current_state], next_player_action]))
+    
+    return action
+
+def update_sarsa_q(Q, states, alpha, discount, state, action, reward, state_next, action_next):
+    q = Q[states[state], action]
+    Q_update = 1/pow(alpha, 2/3) * (reward + discount * Q[states[state_next], action_next] - q)
+    return Q_update
+
+def SARSA(Q, discount, states, player, police, epsilon):
+    step = 0
+    best_sarsa_initial_state = []
+    alpha = {}
+    pbar = tqdm(total=CONVERGENCE_STEPS - step)
+
+    # Start
+    state = (player.position, police.position)
+    next_player_pos, next_player_action = player.possible_moves()
+    action = epsilon_greedy(Q, epsilon, next_player_action, states, state)
+
+    while step < CONVERGENCE_STEPS:
+        
+        # Compute current reward
+        current_state = (player.position, police.position)
+        current_reward = compute_reward(current_state)
+
+        # Get next state and next action
+        police.position = police.generate_move()
+        player.position = next_player_pos[next_player_action.index(action)] # Update state to generate possible future actions
+        next_player_pos, next_player_action = player.possible_moves()
+        state_next = (player.position, police.position)
+        action_next = epsilon_greedy(Q, epsilon, next_player_action, states, state_next)
+
+        # Update alpha
+        if (current_state, action) not in alpha:
+            alpha[(current_state, action)] = 1
+        else:
+            alpha[(current_state, action)] += 1
+
+        # Update Q
+        Q[states[current_state], action] += update_sarsa_q(Q, states, alpha[(current_state, action)], discount,
+                                                        current_state, action, current_reward, state_next, action_next)
+
+        # Update action
+        action = action_next
+
+        # Update best value for initial state
+        aux = np.copy(Q[states[(PLAYER_POS, POLICE_POS)]])
+        best_sarsa_initial_state.append(aux)
+        pbar.update(1)
+        step += 1
+    pbar.close()
+
+    return best_sarsa_initial_state, Q
 
 def plot_grid(player_pos, police_pos):
     fig, ax = plt.subplots()
@@ -146,17 +216,47 @@ def main():
     player = Player()
     police = Police()
     Q_init = initialize_Q(possible_states, player.actions)
-    initial_q, optimal_Q, alpha = Q_Learning(Q_init, discount, states, player, police)
+
+    #---- Train with Q-Learning ----#
+    '''
+    Q_init = initialize_Q(possible_states, player.actions, sarsa = False)
+    q_initial_state, optimal_Q = Q_Learning(Q_init, discount, states, player, police)
     initial_actions = ["Up", "Down", "Left", "Right", "Still"]
     for i in tqdm(range(len(initial_actions))):
         aux_list = []
-        for j in range(len(initial_q)):
-            aux_list.append(initial_q[j][i])
-        plt.plot(range(len(initial_q)), aux_list, label=initial_actions[i])
+        for j in range(len(q_initial_state)):
+            aux_list.append(q_initial_state[j][i])
+        plt.plot(range(len(q_initial_state)), aux_list, label=initial_actions[i])
         plt.legend()
         plt.xlabel("Time")
         plt.ylabel("Value function")
     plt.show()
+    '''
+
+    #---- Train with SARSA ----#
+    # Initiallize outside to use always the same initial Q
+    Q_init = initialize_Q(possible_states, player.actions, sarsa = True)
+
+    # Grid search
+    epsilon_grid = np.round(np.arange(0.1, 1, 0.1), 2)
+    for epsilon in epsilon_grid:
+        # Reset player and polcie
+        player = Player()
+        police = Police()
+
+        sarsa_initial_state, optimal_SARSA = SARSA(Q_init, discount, states, player, police, epsilon)
+        initial_actions = ["Up", "Down", "Left", "Right", "Still"]
+        for i in tqdm(range(len(initial_actions))):
+            aux_list = []
+            for j in range(len(sarsa_initial_state)):
+                aux_list.append(sarsa_initial_state[j][i])
+            plt.plot(range(len(sarsa_initial_state)), aux_list, label=initial_actions[i])
+            plt.legend()
+            plt.xlabel("Time")
+            plt.ylabel("Value function for epsilon " + str(epsilon))
+        plt.show()
+
+
 
 
 if __name__ == "__main__":
