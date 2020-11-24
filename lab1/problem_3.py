@@ -254,7 +254,8 @@ def main():
             plt.legend()
             plt.xlabel("Time")
             plt.ylabel("Value function for epsilon " + str(epsilon))
-        plt.show()
+        plt.savefig("Results/Problem3/" + str(epsilon) + '_epsilon.png')
+        plt.close()
 
 
 
