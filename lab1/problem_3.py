@@ -22,7 +22,7 @@ STILL = lambda pos: pos
 
 PLAYER_POS = (0, 0)
 POLICE_POS = (3, 3)
-CONVERGENCE_STEPS = pow(10, 6)
+CONVERGENCE_STEPS = pow(10, 7)
 
 
 def compute_reward(state):
@@ -36,8 +36,7 @@ def compute_reward(state):
 
 def initialize_Q(states, possible_actions, sarsa = True):
     if sarsa:
-        # Initialize correctly --> Zero to impossible moves
-        Q = np.random.rand(len(states), len(possible_actions))
+        Q = np.zeros((len(states), len(possible_actions)))
     else:
         Q = np.zeros((len(states), len(possible_actions)))
     return Q
@@ -124,7 +123,7 @@ def Q_Learning(Q, discount, states, player, police):
         # Move police
         police.position = police.generate_move()
         step += 1
-        aux = np.copy(Q[states[(PLAYER_POS, POLICE_POS)]])
+        aux = max(np.copy(Q[states[(PLAYER_POS, POLICE_POS)]]))
         best_q_initial_state.append(aux)
         pbar.update(1)
     pbar.close()
@@ -133,12 +132,12 @@ def Q_Learning(Q, discount, states, player, police):
 
 def epsilon_greedy(Q, epsilon, next_player_action, states, current_state):
     # Explore randomly with probability epsilon, otherwise exploit the best policy for that state
-    if np.random.rand() < epsilon:
+    if np.random.rand() <= epsilon:
         action = np.random.choice(next_player_action)
     else:
         try:
-            action_max = max(Q[states[current_state], next_player_action])
-            action = np.where(Q[states[current_state]] == action_max)[0][0]
+            action_max = np.argmax(Q[states[current_state], next_player_action])
+            action = next_player_action[action_max]
         except:
             print(next_player_action)
             print(Q[states[current_state]])
@@ -189,7 +188,7 @@ def SARSA(Q, discount, states, player, police, epsilon):
         action = action_next
 
         # Update best value for initial state
-        aux = np.copy(Q[states[(PLAYER_POS, POLICE_POS)]])
+        aux = max(np.copy(Q[states[(PLAYER_POS, POLICE_POS)]]))
         best_sarsa_initial_state.append(aux)
         pbar.update(1)
         step += 1
@@ -218,21 +217,13 @@ def main():
     Q_init = initialize_Q(possible_states, player.actions)
 
     #---- Train with Q-Learning ----#
-    '''
     Q_init = initialize_Q(possible_states, player.actions, sarsa = False)
     q_initial_state, optimal_Q = Q_Learning(Q_init, discount, states, player, police)
-    initial_actions = ["Up", "Down", "Left", "Right", "Still"]
-    for i in tqdm(range(len(initial_actions))):
-        aux_list = []
-        for j in range(len(q_initial_state)):
-            aux_list.append(q_initial_state[j][i])
-        plt.plot(range(len(q_initial_state)), aux_list, label=initial_actions[i])
-        plt.legend()
-        plt.xlabel("Time")
-        plt.ylabel("Value function")
-    plt.savefig("Results/Problem3/Q_learning.png')
+    plt.plot(range(len(q_initial_state)), q_initial_state)
+    plt.xlabel("Time")
+    plt.ylabel("Value function Q-Learning")
+    plt.savefig("Results/Problem3/q_learning.png")
     plt.close()
-    '''
 
     #---- Train with SARSA ----#
     # Initiallize outside to use always the same initial Q
@@ -245,16 +236,10 @@ def main():
         player = Player()
         police = Police()
 
-        sarsa_initial_state, optimal_SARSA = SARSA(Q_init, discount, states, player, police, epsilon)
-        initial_actions = ["Up", "Down", "Left", "Right", "Still"]
-        for i in tqdm(range(len(initial_actions))):
-            aux_list = []
-            for j in range(len(sarsa_initial_state)):
-                aux_list.append(sarsa_initial_state[j][i])
-            plt.plot(range(len(sarsa_initial_state)), aux_list, label=initial_actions[i])
-            plt.legend()
-            plt.xlabel("Time")
-            plt.ylabel("Value function for epsilon " + str(epsilon))
+        value_func, optimal_SARSA = SARSA(Q_init, discount, states, player, police, epsilon)
+        plt.plot(range(len(value_func)), value_func)
+        plt.xlabel("Time")
+        plt.ylabel("Value function for epsilon " + str(epsilon))
         plt.savefig("Results/Problem3/" + str(epsilon) + '_epsilon.png')
         plt.close()
 
