@@ -16,53 +16,48 @@
 # Load packages
 import numpy as np
 import gym
-import torch
 import matplotlib.pyplot as plt
 import itertools
 import pickle
 
-# Import and initialize Mountain Car Environment
-env = gym.make('MountainCar-v0')
-env.reset()
-k = env.action_space.n      # tells you the number of actions (push left, push right, no push)
-low, high = env.observation_space.low, env.observation_space.high
 
-# Parameters
-np.random.seed(1337)
-N_episodes = 200        # Number of episodes to run for training
-discount_factor = 1.    # Value of gamma
-lbd = 1 # Eligibility parameter
-p = 2 # Order of the problem
-momentum = 0.9 # momentum
-dimensions = 2 # Velocity and height
-m = pow(p + 1, dimensions) # Number of basis functions 
-W = np.random.random((m, k)) # weights
-N = np.array(list(itertools.product(range(p + 1), range(p + 1)))).T # Size (dimensions x m)
-Z = np.zeros(W.shape) # Initialize eligibility traces
-V = np.zeros(W.shape) # Velocity term
+def epsilon_greedy(k, epsilon, W, N, state):
+    # Explore randomly with probability epsilon, otherwise exploit the best policy for that state
+    action = 0
+    if np.random.rand() <= epsilon:
+        action = np.random.choice(k)
+    else:
+        best_action = float('-inf')
+        for a in range(k):
+            q = W[:, a].reshape(-1, 1).T @ compute_phi(N, state)
+            if best_action < q:
+                best_action = q
+                action = a
 
-# Reward
-episode_reward_list = []  # Used to save episodes reward
+    return action
+
 
 # Functions used during training
 def running_average(x, N):
-    ''' Function used to compute the running mean
-        of the last N elements of a vector x
-    '''
+    """
+    Function used to compute the running mean
+    of the last N elements of a vector x
+    """
     if len(x) >= N:
         y = np.copy(x)
-        y[N-1:] = np.convolve(x, np.ones((N, )) / N, mode='valid')
+        y[N - 1:] = np.convolve(x, np.ones((N,)) / N, mode='valid')
     else:
         y = np.zeros_like(x)
     return y
 
-def scale_state_variables(s, low=env.observation_space.low, high=env.observation_space.high):
-    ''' Rescaling of s to the box [0,1]^2 '''
+
+def scale_state_variables(s, low, high):
+    """ Rescaling of s to the box [0,1]^2 """
     x = (s - low) / (high - low)
     return x
 
 
-def eligibility_greedy_update(Z, discount_factor, lbd, action_t, state, phi):
+def elegibility_greedy_update(Z, discount_factor, lbd, action_t, phi, k):
     for action in range(k):
         if action == action_t:
             Z[:, action] = discount_factor * lbd * Z[:, action] + phi.reshape(-1, )
@@ -72,15 +67,15 @@ def eligibility_greedy_update(Z, discount_factor, lbd, action_t, state, phi):
 
     return Z
 
-def update_w(momentum, V, alpha, delta, Z, W):
 
+def update_w(momentum, V, alpha, delta, Z, W):
     # Update Velocity term
     V = momentum * V + alpha * delta * Z
-    
     # Update Weights
-    W += momentum * V + alpha * delta * Z
+    W = W + momentum * V + alpha * delta * Z
 
     return W
+
 
 def compute_phi(N, state):
     # Initialize Fourier Basis for particular state
@@ -88,10 +83,13 @@ def compute_phi(N, state):
 
     return phi
 
-def SARSA(state, action, reward, next_state, next_action, discount_factor, W, phi, phi_next):
-    delta = reward + discount_factor * W[:, next_action].T.reshape(1, -1) @ phi_next - W[:, action].T.reshape(1, -1) @ phi
-    
+
+def SARSA(action, reward, next_action, discount_factor, W, phi, phi_next):
+    delta = reward + discount_factor * W[:, next_action].reshape(-1, 1).T @ phi_next - \
+            W[:, action].reshape(-1, 1).T @ phi
+
     return float(delta)
+
 
 def compute_learning_rate(lr, N):
     alpha = []
@@ -104,68 +102,103 @@ def compute_learning_rate(lr, N):
 
     return np.array(alpha)
 
-# Training process
-for i in range(N_episodes):
-    # Reset enviroment data
-    done = False
-    state = scale_state_variables(env.reset())
-    total_episode_reward = 0.
 
+def main():
+    best_w = None
+    best_n = None
+    best_reward = float('-inf')
+    # Import and initialize Mountain Car Environment
+    env = gym.make('MountainCar-v0')
+    env.reset()
+    k = env.action_space.n  # tells you the number of actions (push left, push right, no push)
+    # Parameters
+    np.random.seed(1337)
+    N_episodes = 200  # Number of episodes to run for training
+    discount_factor = 1.  # Value of gamma
+    lbd = 1  # Eligibility parameter
+    p = 2  # Order of the problem
+    momentum = 0.9  # momentum
+    dimensions = 2  # Velocity and height
+    epsilon = 0.1  # Epsilon value
     # Initialize learning rate
+    m = pow(p + 1, dimensions)  # Number of basis functions
+    W = np.random.random((m, k))  # weights
+    N = np.array(list(itertools.product(range(p + 1), range(p + 1)))).T  # Size (dimensions x m)
+    Z = np.zeros(W.shape)  # Initialize eligibility traces
+    V = np.zeros(W.shape)  # Velocity term
     lr = 0.001
     alpha = compute_learning_rate(lr, N)
-    while not done:
-        # env.render()
-        # Take a random action
-        # env.action_space.n tells you the number of actions
-        # available
-        action = np.random.randint(0, k)
-            
-        # Get next state and reward.  The done variable
-        # will be True if you reached the goal position,
-        # False otherwise
-        next_state, reward, done, _ = env.step(action)
-        next_state = scale_state_variables(next_state)
 
-        # Update episode reward
-        total_episode_reward += reward
+    # Reward
+    episode_reward_list = []  # Used to save episodes reward
 
-        # Compute phi's
-        phi_current = compute_phi(N, state)
-        phi_next = compute_phi(N, next_state)
+    # Training process
+    for i in range(N_episodes):
+        # Reset enviroment data
+        done = False
+        state = scale_state_variables(env.reset(), env.observation_space.low, env.observation_space.high)
+        total_episode_reward = 0.
+        while not done:
+            # env.render()
+            # Take a random action
+            # env.action_space.n tells you the number of actions
+            # available
+            action = epsilon_greedy(k, epsilon, W, N, state)
 
-        # Compute next action based on next state
-        next_action = np.random.randint(0, k)
+            # Get next state and reward.  The done variable
+            # will be True if you reached the goal position,
+            # False otherwise
+            next_state, reward, done, _ = env.step(action)
+            next_state = scale_state_variables(next_state, env.observation_space.low, env.observation_space.high)
 
-        # Compute total temporal error SARSA(state, action, reward, next_state, next_action)
-        delta = SARSA(state, action, reward, next_state, next_action, discount_factor, W, phi_current, phi_next)
+            # Update episode reward
+            total_episode_reward += reward
 
-        # Update state for next iteration
-        state = next_state
+            # Compute phi's
+            phi_current = compute_phi(N, state)
+            phi_next = compute_phi(N, next_state)
 
-        # Update parameters Z and W
-        Z = eligibility_greedy_update(Z, discount_factor, lbd, action, state, phi_current)
-        for idx, lr in enumerate(alpha): 
-            W[idx] = update_w(momentum, V[idx], lr, delta, Z[idx], W[idx])
+            # Compute next action based on next state
+            next_action = epsilon_greedy(k, epsilon, W, N, next_state)
 
-    # Append episode reward
-    episode_reward_list.append(total_episode_reward)
+            # Compute total temporal error SARSA(state, action, reward, next_state, next_action)
+            delta = SARSA(action, reward, next_action, discount_factor, W, phi_current, phi_next)
 
-    # Close environment
-    env.close()
+            # Update state for next iteration
+            state = next_state
 
-data = {'W': W.T,
-        "N": N.T
-        }
+            # Update parameters Z and W
+            Z = elegibility_greedy_update(Z, discount_factor, lbd, action, phi_current, k)
+            for idx, lr in enumerate(alpha):
+                W[idx] = update_w(momentum, V[idx], lr, delta, Z[idx], W[idx])
 
-pickle.dump(data, open( "weights.pkl", "wb" ) )
+        # Append episode reward
+        episode_reward_list.append(total_episode_reward)
+        if episode_reward_list[-1] > best_reward:
+            best_reward = episode_reward_list[-1]
+            best_n = N.T
+            best_w = W.T
 
-# Plot Rewards
-plt.plot([i for i in range(1, N_episodes+1)], episode_reward_list, label='Episode reward')
-plt.plot([i for i in range(1, N_episodes+1)], running_average(episode_reward_list, 10), label='Average episode reward')
-plt.xlabel('Episodes')
-plt.ylabel('Total reward')
-plt.title('Total Reward vs Episodes')
-plt.legend()
-plt.grid(alpha=0.3)
-plt.show()
+        # Close environment
+        env.close()
+
+    data = {'W': best_w,
+            "N": best_n
+            }
+
+    pickle.dump(data, open("weights.pkl", "wb"))
+
+    # Plot Rewards
+    plt.plot([i for i in range(1, N_episodes + 1)], episode_reward_list, label='Episode reward')
+    plt.plot([i for i in range(1, N_episodes + 1)], running_average(episode_reward_list, 10),
+             label='Average episode reward')
+    plt.xlabel('Episodes')
+    plt.ylabel('Total reward')
+    plt.title('Total Reward vs Episodes')
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()

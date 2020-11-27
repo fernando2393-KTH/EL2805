@@ -130,20 +130,17 @@ def Q_Learning(Q, discount, states, player, police):
 
     return best_q_initial_state, Q
 
+
 def epsilon_greedy(Q, epsilon, next_player_action, states, current_state):
     # Explore randomly with probability epsilon, otherwise exploit the best policy for that state
     if np.random.rand() <= epsilon:
         action = np.random.choice(next_player_action)
     else:
-        try:
-            action_max = np.argmax(Q[states[current_state], next_player_action])
-            action = next_player_action[action_max]
-        except:
-            print(next_player_action)
-            print(Q[states[current_state]])
-            print(max(Q[states[current_state], next_player_action]))
+        action_max = np.argmax(Q[states[current_state], next_player_action])
+        action = next_player_action[action_max]
     
     return action
+
 
 def update_sarsa_q(Q, states, alpha, discount, state, action, reward, state_next, action_next):
     q = Q[states[state], action]
