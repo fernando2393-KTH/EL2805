@@ -19,6 +19,7 @@ import gym
 import matplotlib.pyplot as plt
 import itertools
 import pickle
+from tqdm import tqdm
 
 
 def epsilon_greedy(k, epsilon, W, N, state):
@@ -93,7 +94,7 @@ def SARSA(action, reward, next_action, discount_factor, W, phi, phi_next):
 
 def compute_learning_rate(lr, N):
     alpha = []
-    for eta in N:
+    for eta in N.T:  # Transpose in order to get each of the etas
         module = np.linalg.norm(eta)
         if module != 0:
             alpha.append(lr / module)
@@ -104,22 +105,18 @@ def compute_learning_rate(lr, N):
 
 
 def main():
-    best_w = None
-    best_n = None
-    best_reward = float('-inf')
     # Import and initialize Mountain Car Environment
     env = gym.make('MountainCar-v0')
     env.reset()
     k = env.action_space.n  # tells you the number of actions (push left, push right, no push)
     # Parameters
-    np.random.seed(1337)
     N_episodes = 200  # Number of episodes to run for training
     discount_factor = 1.  # Value of gamma
-    lbd = 1  # Eligibility parameter
+    lbd = 0.7  # Eligibility parameter
     p = 2  # Order of the problem
-    momentum = 0.9  # momentum
+    momentum = 0.6  # momentum
     dimensions = 2  # Velocity and height
-    epsilon = 0.1  # Epsilon value
+    epsilon = np.arange(0, 1, 1/N_episodes)[::-1]  # Epsilon value
     # Initialize learning rate
     m = pow(p + 1, dimensions)  # Number of basis functions
     W = np.random.random((m, k))  # weights
@@ -133,7 +130,7 @@ def main():
     episode_reward_list = []  # Used to save episodes reward
 
     # Training process
-    for i in range(N_episodes):
+    for i in tqdm(range(N_episodes)):
         # Reset enviroment data
         done = False
         state = scale_state_variables(env.reset(), env.observation_space.low, env.observation_space.high)
@@ -143,7 +140,7 @@ def main():
             # Take a random action
             # env.action_space.n tells you the number of actions
             # available
-            action = epsilon_greedy(k, epsilon, W, N, state)
+            action = epsilon_greedy(k, epsilon[i], W, N, state)
 
             # Get next state and reward.  The done variable
             # will be True if you reached the goal position,
@@ -159,7 +156,7 @@ def main():
             phi_next = compute_phi(N, next_state)
 
             # Compute next action based on next state
-            next_action = epsilon_greedy(k, epsilon, W, N, next_state)
+            next_action = epsilon_greedy(k, epsilon[i], W, N, next_state)
 
             # Compute total temporal error SARSA(state, action, reward, next_state, next_action)
             delta = SARSA(action, reward, next_action, discount_factor, W, phi_current, phi_next)
@@ -174,16 +171,11 @@ def main():
 
         # Append episode reward
         episode_reward_list.append(total_episode_reward)
-        if episode_reward_list[-1] > best_reward:
-            best_reward = episode_reward_list[-1]
-            best_n = N.T
-            best_w = W.T
-
         # Close environment
         env.close()
 
-    data = {'W': best_w,
-            "N": best_n
+    data = {'W': W.T,
+            "N": N.T
             }
 
     pickle.dump(data, open("weights.pkl", "wb"))
