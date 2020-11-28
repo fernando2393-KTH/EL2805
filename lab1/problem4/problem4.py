@@ -118,7 +118,7 @@ def main():
     # Parameters
     N_episodes = 200  # Number of episodes to run for training
     discount_factor = 1.  # Value of gamma
-    lbd = 1.0  # Eligibility parameter
+    lbd = 0.7  # Eligibility parameter
     p = 2  # Order of the problem
     momentum = 0.6  # momentum
     dimensions = 2  # Velocity and height
