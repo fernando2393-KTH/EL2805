@@ -151,7 +151,7 @@ def value_iteration(possible_states, states, gamma, tolerance):
 
     # Iterate until convergence
     n = 0
-    while np.linalg.norm(V - best_V) >= tolerance and n < 50:
+    while np.linalg.norm(V - best_V) >= tolerance:
         # Update the value function
         V = np.copy(best_V)
         # Compute the new BV
