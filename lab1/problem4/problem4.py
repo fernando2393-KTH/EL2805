@@ -64,7 +64,7 @@ def scale_state_variables(s, low, high):
     return x
 
 
-def elegibility_greedy_update(Z, discount_factor, lbd, action_t, phi, k):
+def eligibility_greedy_update(Z, discount_factor, lbd, action_t, phi, k):
     for action in range(k):
         if action == action_t:
             Z[:, action] = discount_factor * lbd * Z[:, action] + phi.reshape(-1, )
@@ -118,7 +118,7 @@ def main():
     # Parameters
     N_episodes = 200  # Number of episodes to run for training
     discount_factor = 1.  # Value of gamma
-    lbd = 0.7  # Eligibility parameter
+    lbd = 1.0  # Eligibility parameter
     p = 2  # Order of the problem
     momentum = 0.6  # momentum
     dimensions = 2  # Velocity and height
@@ -171,7 +171,7 @@ def main():
             state = next_state
 
             # Update parameters Z and W
-            Z = elegibility_greedy_update(Z, discount_factor, lbd, action, phi_current, k)
+            Z = eligibility_greedy_update(Z, discount_factor, lbd, action, phi_current, k)
             for idx, lr in enumerate(alpha):
                 W[idx] = update_w(momentum, V[idx], lr, delta, Z[idx], W[idx])
 

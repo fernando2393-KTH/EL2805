@@ -273,7 +273,7 @@ def main():
                 games_outcome["loss distribution"].append(life_time)
             
         print("All games ended")
-        print("Ratio (Not Finished)/(Won) :", games_outcome["times up"]/games_outcome["win"])
+        print("Ratio (Not Finished)/(Won) :", games_outcome["times up"]/(games_outcome["win"]+games_outcome["times up"]))
 
         plt.hist(games_outcome["win distribution"], color="b", edgecolor="black",
                  bins=int(len(set(games_outcome["win distribution"]))/5), label="Win")
