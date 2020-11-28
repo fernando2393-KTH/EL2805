@@ -1,3 +1,9 @@
+'''
+@Authors:
+Fernando Garcia Sanz - 970718-0312
+Gustavo Teodoro Döhler Beck - 940218-0195
+'''
+
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools
@@ -267,7 +273,6 @@ def main():
                 games_outcome["loss distribution"].append(life_time)
             
         print("All games ended")
-        print(games_outcome)
         print("Ratio (Not Finished)/(Won) :", games_outcome["times up"]/games_outcome["win"])
 
         plt.hist(games_outcome["win distribution"], color="b", edgecolor="black",
@@ -275,6 +280,7 @@ def main():
         plt.hist(games_outcome["loss distribution"], color="r", edgecolor="black",
                  bins=int(len(set(games_outcome["loss distribution"]))/5), label="Loss")
         plt.title("Wins vs Losses split by maximum time")
+        plt.legend()
         plt.xlabel("Maximum time")
         plt.ylabel("Frequency")
         plt.show()
