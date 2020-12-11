@@ -21,14 +21,15 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from tqdm import trange
+import copy
 from DQN_agent import RandomAgent, Agent
 
 L = 20000  # Size of the experiences buffer
-N = 4  # Batch size
+N = 64  # Batch size
 MAX_EPS = 0.99  # Maximum value for epsilon
 MIN_EPS = 0.05  # Minimum value for epsilon
 Z = 0.925
-C = L / N  # Steps for target update
+C = round(L / N)  # Steps for target update
 
 
 class ExperienceReplayBuffer(object):
@@ -140,7 +141,7 @@ def main():
     env.reset()
 
     # Parameters
-    N_episodes = 100  # Number of episodes
+    N_episodes = 500  # Number of episodes
     discount_factor = 0.95  # Value of the discount factor
     n_ep_running_average = 50  # Running average of 50 episodes
     n_actions = env.action_space.n  # Number of available actions
@@ -156,8 +157,8 @@ def main():
     agent = Agent(n_actions)
 
     # Buffer and network(s) initialization
-    network = MyNetwork(input_size=dim_state, output_size=n_actions, hidden_layer_size=8)
-    target_network = MyNetwork(input_size=dim_state, output_size=n_actions, hidden_layer_size=8)
+    network = MyNetwork(input_size=dim_state, output_size=n_actions, hidden_layer_size=64)
+    target_network = copy.deepcopy(network)
     buffer = ExperienceReplayBuffer(maximum_length=L)
     optimizer = torch.optim.Adam(network.parameters(), lr=lr)
 
@@ -193,22 +194,19 @@ def main():
                 for j in range(len(states)):
                     targets.append(compute_target(discount_factor, next_states[j],
                                                   rewards[j], dones[j], target_network, agent))
-                    values.append(agent.forward(states[j], network)[0])
+                    values.append(agent.forward(states[j], network)[0][actions[j]])
                 targets = torch.tensor(targets)  # Convert targets to tensor
                 values = torch.stack(values)  # Stack values as a single tensor
-                values = torch.tensor([values[j][actions[j]].item() for j in range(len(values))])  # Select action
+
                 # Training process, set gradients to 0
                 optimizer.zero_grad()
                 # Compute loss function
                 loss = nn.functional.mse_loss(
                     targets,
-                    values)
-                # TODO: I stopped here
-                # Compute gradient
-                loss.backward()
-                # Clip gradient norm to 1
-                nn.utils.clip_grad_norm_(network.parameters(), max_norm=1.)
-                # Perform backward pass (backpropagation)
+                    values
+                    )
+                network = agent.backward(loss, optimizer, network)
+
                 optimizer.step()
 
             # Update episode reward
@@ -217,6 +215,11 @@ def main():
             # Update state for next iteration
             state = next_state
             t += 1
+
+
+            # TODO: How should we update this?
+            if t // 20 == 0:
+                target_network = copy.deepcopy(network)
 
         # Append episode reward and total number of steps
         episode_reward_list.append(total_episode_reward)

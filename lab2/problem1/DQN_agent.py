@@ -16,7 +16,7 @@
 # Load packages
 import numpy as np
 import torch
-
+import torch.nn as nn
 
 class Agent(object):
     """ Base agent class, used as a parent class
@@ -41,9 +41,14 @@ class Agent(object):
         return network(state_tensor)
 
 
-    def backward(self):
+    def backward(self, loss, optimizer, network):
         """ Performs a backward pass on the network """
-        pass
+        # Compute gradient and Perform backward pass (backpropagation)
+        loss.backward()
+        # Clip gradient norm to 1
+        nn.utils.clip_grad_norm_(network.parameters(), max_norm=1.)
+        
+        return network
 
 
 class RandomAgent(Agent):
