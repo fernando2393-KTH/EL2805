@@ -22,7 +22,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from tqdm import trange
 import copy
-from DQN_agent import RandomAgent, Agent
+from DQN_agent import RandomAgent, AgentQ
 
 L = 5000  # Size of the experiences buffer
 N = 64  # Batch size
@@ -131,6 +131,7 @@ def main():
         while not done:
             # Take a random action
             action = agent.forward(state, epsilon, buffer=False) # Compute possible actions
+
             # Get next state and reward. The done variable
             # will be True if you reached the goal position,
             # False otherwise
@@ -146,7 +147,9 @@ def main():
                 
                 mask = torch.Tensor(np.multiply(dones,1))
 
-                targets = torch.Tensor(rewards) + (1 - mask) * discount_factor * agent.forward_target(next_states)
+                Q_max = agent.forward_target(next_states)
+
+                targets = torch.Tensor(rewards) + (1 - mask) * discount_factor * Q_max
 
                 actions_tensor = torch.LongTensor(actions).reshape(-1, 1)
 
@@ -156,6 +159,7 @@ def main():
 
             # Update episode reward
             total_episode_reward += reward
+            break
 
             # Update state for next iteration
             state = next_state
