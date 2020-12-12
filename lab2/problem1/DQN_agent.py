@@ -32,10 +32,10 @@ class Agent(object):
         self.n_actions = n_actions
         self.last_action = None
 
-    def forward(self, state: np.ndarray, network):
+    def forward(self, state: np.ndarray, network, buffer):
         """ Performs a forward computation """
         state_tensor = torch.tensor([state],
-                                    requires_grad=False,
+                                    requires_grad=buffer,
                                     dtype=torch.float32)
 
         return network(state_tensor)

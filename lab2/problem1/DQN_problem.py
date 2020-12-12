@@ -24,8 +24,9 @@ from tqdm import trange
 import copy
 from DQN_agent import RandomAgent, Agent
 
-L = 20000  # Size of the experiences buffer
+L = 5000  # Size of the experiences buffer
 N = 64  # Batch size
+HIDDEN_NODES = 128
 MAX_EPS = 0.99  # Maximum value for epsilon
 MIN_EPS = 0.05  # Minimum value for epsilon
 Z = 0.925
@@ -85,6 +86,10 @@ class MyNetwork(nn.Module):
         self.input_layer = nn.Linear(input_size, hidden_layer_size)
         self.input_layer_activation = nn.ReLU()
 
+        # Create middle layer with ReLU activation
+        self.middle_layer = nn.Linear(hidden_layer_size, hidden_layer_size)
+        self.middle_layer_activation = nn.ReLU()
+
         # Create output layer
         self.output_layer = nn.Linear(hidden_layer_size, output_size)
 
@@ -95,8 +100,12 @@ class MyNetwork(nn.Module):
         l1 = self.input_layer(x)
         l1 = self.input_layer_activation(l1)
 
+        # Compute second layer
+        l2 = self.middle_layer(l1)
+        l2 = self.middle_layer_activation(l2)
+
         # Compute output layer
-        out = self.output_layer(l1)
+        out = self.output_layer(l2)
         return out
 
 
@@ -128,7 +137,7 @@ def epsilon_decay(k, n_episodes):
 
 def compute_target(discount_factor, next_state, reward, done, target_network, agent):
     if not done:
-        actions = agent.forward(next_state, target_network)
+        actions = agent.forward(next_state, target_network, buffer=True)
         best_choice = actions.max(1)[0].item()
         return reward + discount_factor * best_choice
     else:
@@ -136,17 +145,18 @@ def compute_target(discount_factor, next_state, reward, done, target_network, ag
 
 
 def main():
+
     # Import and initialize the discrete Lunar Laner Environment
     env = gym.make('LunarLander-v2')
     env.reset()
 
     # Parameters
-    N_episodes = 500  # Number of episodes
+    N_episodes = 100  # Number of episodes
     discount_factor = 0.95  # Value of the discount factor
     n_ep_running_average = 50  # Running average of 50 episodes
     n_actions = env.action_space.n  # Number of available actions
     dim_state = len(env.observation_space.high)  # State dimensionality
-    lr = 0.5 * pow(10, -3)  # Learning rate
+    lr = pow(10, -3)  # Learning rate
 
     # We will use these variables to compute the average episodic reward and
     # the average number of steps per episode
@@ -157,8 +167,8 @@ def main():
     agent = Agent(n_actions)
 
     # Buffer and network(s) initialization
-    network = MyNetwork(input_size=dim_state, output_size=n_actions, hidden_layer_size=64)
-    target_network = copy.deepcopy(network)
+    network = MyNetwork(input_size=dim_state, output_size=n_actions, hidden_layer_size=HIDDEN_NODES)
+    target_network = MyNetwork(input_size=dim_state, output_size=n_actions, hidden_layer_size=HIDDEN_NODES)
     buffer = ExperienceReplayBuffer(maximum_length=L)
     optimizer = torch.optim.Adam(network.parameters(), lr=lr)
 
@@ -175,9 +185,10 @@ def main():
         total_episode_reward = 0.
         t = 0
         epsilon = epsilon_decay(i + 1, N_episodes)
+
         while not done:
             # Take a random action
-            values = agent.forward(state, network)  # Compute possible actions
+            values = agent.forward(state, network, buffer=False)  # Compute possible actions
             action = epsilon_greedy(epsilon, values)  # Take greedy action
             # Get next state and reward. The done variable
             # will be True if you reached the goal position,
@@ -191,20 +202,23 @@ def main():
                 states, actions, rewards, next_states, dones = buffer.sample_batch(n=N)
                 targets = []
                 values = []
+                
                 for j in range(len(states)):
                     targets.append(compute_target(discount_factor, next_states[j],
                                                   rewards[j], dones[j], target_network, agent))
-                    values.append(agent.forward(states[j], network)[0][actions[j]])
+                    values.append(agent.forward(states[j], network, buffer=True)[0][actions[j]].double())
                 targets = torch.tensor(targets)  # Convert targets to tensor
                 values = torch.stack(values)  # Stack values as a single tensor
 
                 # Training process, set gradients to 0
                 optimizer.zero_grad()
+
                 # Compute loss function
                 loss = nn.functional.mse_loss(
-                    targets,
-                    values
+                    values,
+                    targets
                     )
+
                 network = agent.backward(loss, optimizer, network)
 
                 optimizer.step()
@@ -214,12 +228,12 @@ def main():
 
             # Update state for next iteration
             state = next_state
-            t += 1
-
 
             # TODO: How should we update this?
-            if t // 20 == 0:
-                target_network = copy.deepcopy(network)
+            if t % C == 0:
+                target_network.load_state_dict(network.state_dict())
+            
+            t += 1
 
         # Append episode reward and total number of steps
         episode_reward_list.append(total_episode_reward)
