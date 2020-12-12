@@ -108,7 +108,7 @@ def main():
     episode_number_of_steps = []  # this list contains the number of steps per episode
 
     # Random agent initialization
-    agent = Agent(n_actions, dim_state, lr, N_episodes, discount_factor)
+    agent = AgentQ(n_actions, dim_state, lr, N_episodes, discount_factor)
 
     # Initialize Buffer
     buffer = ExperienceReplayBuffer(maximum_length=L)
