@@ -124,13 +124,13 @@ def main():
         done = False
         state = env.reset()
         total_episode_reward = 0.
-        t = 0
+        t = 1
         
         epsilon = epsilon_decay(i, N_episodes)
 
         while not done:
             # Take a random action
-            action = agent.forward(state, epsilon, buffer=False) # Compute possible actions
+            action = agent.forward(state, epsilon, grad=False) # Compute possible actions
 
             # Get next state and reward. The done variable
             # will be True if you reached the goal position,
@@ -149,17 +149,18 @@ def main():
 
                 Q_max = agent.forward_target(next_states)
 
-                targets = torch.Tensor(rewards) + (1 - mask) * discount_factor * Q_max
+                rewards_tensor = torch.Tensor(rewards)
+
+                targets = rewards_tensor + (1 - mask) * discount_factor * Q_max
 
                 actions_tensor = torch.LongTensor(actions).reshape(-1, 1)
 
-                values = torch.gather(agent.forward(states, i, buffer=True).reshape(-1, n_actions), 1, actions_tensor)
+                values = torch.gather(agent.forward(states, i, grad=True).reshape(-1, n_actions), 1, actions_tensor)
 
                 agent.backward(values, targets, t, C)
 
             # Update episode reward
             total_episode_reward += reward
-            break
 
             # Update state for next iteration
             state = next_state

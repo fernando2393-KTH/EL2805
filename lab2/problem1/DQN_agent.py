@@ -83,10 +83,10 @@ class AgentQ(object):
         self.episodes = N_episodes
         self.discount_factor = discount_factor
 
-    def forward(self, state: np.ndarray, epsilon, buffer):
+    def forward(self, state: np.ndarray, epsilon, grad):
         """ Performs a forward computation """
         state_tensor = torch.tensor([state],
-                                    requires_grad=buffer,
+                                    requires_grad=grad,
                                     dtype=torch.float32)
         
 
@@ -95,7 +95,6 @@ class AgentQ(object):
         if buffer:
             return values
         else:
-
             action = epsilon_greedy(epsilon, values)
 
             return action
@@ -105,7 +104,7 @@ class AgentQ(object):
         state_tensor = torch.tensor([states],
                                     requires_grad=False,
                                     dtype=torch.float32)
-        
+
         values = self.target_network(state_tensor).max(axis = 2)[0]
         
         return values
