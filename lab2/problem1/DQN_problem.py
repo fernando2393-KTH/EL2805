@@ -26,12 +26,10 @@ from DQN_agent import RandomAgent, Agent
 
 L = 5000  # Size of the experiences buffer
 N = 64  # Batch size
-HIDDEN_NODES = 128
 MAX_EPS = 0.99  # Maximum value for epsilon
 MIN_EPS = 0.05  # Minimum value for epsilon
 Z = 0.925
-C = round(L / N)  # Steps for target update
-
+C = int(L / N)
 
 class ExperienceReplayBuffer(object):
     """ Class used to store a buffer containing experiences of the RL agent.
@@ -76,49 +74,6 @@ class ExperienceReplayBuffer(object):
         # tuple of 5 elements where each element is a list of n elements.
         return zip(*batch)
 
-
-class MyNetwork(nn.Module):
-    """ Create a feedforward neural network """
-    def __init__(self, input_size, output_size, hidden_layer_size):
-        super().__init__()
-
-        # Create input layer with ReLU activation
-        self.input_layer = nn.Linear(input_size, hidden_layer_size)
-        self.input_layer_activation = nn.ReLU()
-
-        # Create middle layer with ReLU activation
-        self.middle_layer = nn.Linear(hidden_layer_size, hidden_layer_size)
-        self.middle_layer_activation = nn.ReLU()
-
-        # Create output layer
-        self.output_layer = nn.Linear(hidden_layer_size, output_size)
-
-    def forward(self, x):
-        # Function used to compute the forward pass
-
-        # Compute first layer
-        l1 = self.input_layer(x)
-        l1 = self.input_layer_activation(l1)
-
-        # Compute second layer
-        l2 = self.middle_layer(l1)
-        l2 = self.middle_layer_activation(l2)
-
-        # Compute output layer
-        out = self.output_layer(l2)
-        return out
-
-
-def epsilon_greedy(epsilon, values):
-    # Explore randomly with probability epsilon, otherwise exploit the best policy for that state
-    if np.random.rand() <= epsilon:
-        action = np.random.choice(range(len(values.detach().numpy().T)))
-    else:
-        action = values.max(1)[1].item()
-
-    return action
-
-
 def running_average(x, N):
     """ Function used to compute the running average
         of the last N elements of a vector x
@@ -130,19 +85,8 @@ def running_average(x, N):
         y = np.zeros_like(x)
     return y
 
-
-def epsilon_decay(k, n_episodes):
-    return max(MIN_EPS, MAX_EPS - ((MAX_EPS - MIN_EPS) * (k - 1)) / (n_episodes * Z - 1))
-
-
-def compute_target(discount_factor, next_state, reward, done, target_network, agent):
-    if not done:
-        actions = agent.forward(next_state, target_network, buffer=True)
-        best_choice = actions.max(1)[0].item()
-        return reward + discount_factor * best_choice
-    else:
-        return reward
-
+def epsilon_decay(k, N_episodes):
+    return max(MIN_EPS, MAX_EPS * (MIN_EPS / MAX_EPS) ** ((k - 1) / (N_episodes * Z - 1)))
 
 def main():
 
@@ -164,13 +108,10 @@ def main():
     episode_number_of_steps = []  # this list contains the number of steps per episode
 
     # Random agent initialization
-    agent = Agent(n_actions)
+    agent = Agent(n_actions, dim_state, lr, N_episodes, discount_factor)
 
-    # Buffer and network(s) initialization
-    network = MyNetwork(input_size=dim_state, output_size=n_actions, hidden_layer_size=HIDDEN_NODES)
-    target_network = MyNetwork(input_size=dim_state, output_size=n_actions, hidden_layer_size=HIDDEN_NODES)
+    # Initialize Buffer
     buffer = ExperienceReplayBuffer(maximum_length=L)
-    optimizer = torch.optim.Adam(network.parameters(), lr=lr)
 
     # -------- Training process -------- #
 
@@ -184,54 +125,40 @@ def main():
         state = env.reset()
         total_episode_reward = 0.
         t = 0
-        epsilon = epsilon_decay(i + 1, N_episodes)
+        
+        epsilon = epsilon_decay(i, N_episodes)
 
         while not done:
             # Take a random action
-            values = agent.forward(state, network, buffer=False)  # Compute possible actions
-            action = epsilon_greedy(epsilon, values)  # Take greedy action
+            action = agent.forward(state, epsilon, buffer=False) # Compute possible actions
             # Get next state and reward. The done variable
             # will be True if you reached the goal position,
             # False otherwise
             next_state, reward, done, _ = env.step(action)
+
             experience = (state, action, reward, next_state, done)  # Create the experience
+            
             buffer.append(experience)  # Append the experience to the buffer
 
             if len(buffer) >= N:
                 # Sample N elements from the buffer
                 states, actions, rewards, next_states, dones = buffer.sample_batch(n=N)
-                targets = []
-                values = []
                 
-                for j in range(len(states)):
-                    targets.append(compute_target(discount_factor, next_states[j],
-                                                  rewards[j], dones[j], target_network, agent))
-                    values.append(agent.forward(states[j], network, buffer=True)[0][actions[j]].double())
-                targets = torch.tensor(targets)  # Convert targets to tensor
-                values = torch.stack(values)  # Stack values as a single tensor
+                mask = torch.Tensor(np.multiply(dones,1))
 
-                # Training process, set gradients to 0
-                optimizer.zero_grad()
+                targets = torch.Tensor(rewards) + (1 - mask) * discount_factor * agent.forward_target(next_states)
 
-                # Compute loss function
-                loss = nn.functional.mse_loss(
-                    values,
-                    targets
-                    )
+                actions_tensor = torch.LongTensor(actions).reshape(-1, 1)
 
-                network = agent.backward(loss, optimizer, network)
+                values = torch.gather(agent.forward(states, i, buffer=True).reshape(-1, n_actions), 1, actions_tensor)
 
-                optimizer.step()
+                agent.backward(values, targets, t, C)
 
             # Update episode reward
             total_episode_reward += reward
 
             # Update state for next iteration
             state = next_state
-
-            # TODO: How should we update this?
-            if t % C == 0:
-                target_network.load_state_dict(network.state_dict())
             
             t += 1
 
