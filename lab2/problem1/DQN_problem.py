@@ -18,10 +18,8 @@ from collections import deque
 import numpy as np
 import gym
 import torch
-import torch.nn as nn
 import matplotlib.pyplot as plt
 from tqdm import trange
-import copy
 from DQN_agent import RandomAgent, AgentQ
 
 L = 5000  # Size of the experiences buffer
@@ -30,6 +28,7 @@ MAX_EPS = 0.99  # Maximum value for epsilon
 MIN_EPS = 0.05  # Minimum value for epsilon
 Z = 0.925
 C = int(L / N)
+
 
 class ExperienceReplayBuffer(object):
     """ Class used to store a buffer containing experiences of the RL agent.
@@ -74,6 +73,7 @@ class ExperienceReplayBuffer(object):
         # tuple of 5 elements where each element is a list of n elements.
         return zip(*batch)
 
+
 def running_average(x, N):
     """ Function used to compute the running average
         of the last N elements of a vector x
@@ -85,8 +85,10 @@ def running_average(x, N):
         y = np.zeros_like(x)
     return y
 
+
 def epsilon_decay(k, N_episodes):
     return max(MIN_EPS, MAX_EPS * (MIN_EPS / MAX_EPS) ** ((k - 1) / (N_episodes * Z - 1)))
+
 
 def main():
 
@@ -125,38 +127,27 @@ def main():
         state = env.reset()
         total_episode_reward = 0.
         t = 1
-        
-        epsilon = epsilon_decay(i, N_episodes)
+        epsilon = epsilon_decay(i + 1, N_episodes)
 
         while not done:
             # Take a random action
-            action = agent.forward(state, epsilon, grad=False) # Compute possible actions
-
+            action = agent.forward(state, epsilon, grad=False)  # Compute possible actions
             # Get next state and reward. The done variable
             # will be True if you reached the goal position,
             # False otherwise
             next_state, reward, done, _ = env.step(action)
-
             experience = (state, action, reward, next_state, done)  # Create the experience
-            
             buffer.append(experience)  # Append the experience to the buffer
 
             if len(buffer) >= N:
                 # Sample N elements from the buffer
                 states, actions, rewards, next_states, dones = buffer.sample_batch(n=N)
-                
                 mask = torch.Tensor(np.multiply(dones,1))
-
                 Q_max = agent.forward_target(next_states)
-
                 rewards_tensor = torch.Tensor(rewards)
-
-                targets = rewards_tensor + (1 - mask) * discount_factor * Q_max
-
-                actions_tensor = torch.LongTensor(actions).reshape(-1, 1)
-
-                values = torch.gather(agent.forward(states, i, grad=True).reshape(-1, n_actions), 1, actions_tensor)
-
+                targets = (rewards_tensor + (1 - mask) * discount_factor * Q_max).reshape(-1, 1)
+                actions_tensor = torch.LongTensor(actions)
+                values = torch.gather(agent.forward(states, i, grad=True), 1, actions_tensor.reshape(-1, 1))
                 agent.backward(values, targets, t, C)
 
             # Update episode reward
@@ -182,6 +173,9 @@ def main():
                 i, total_episode_reward, t,
                 running_average(episode_reward_list, n_ep_running_average)[-1],
                 running_average(episode_number_of_steps, n_ep_running_average)[-1]))
+
+    # Save network
+    torch.save(agent.target_network, 'neural-network-1.pt')
 
     # Plot Rewards and steps
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 9))

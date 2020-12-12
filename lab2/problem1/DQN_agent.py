@@ -14,7 +14,6 @@
 #
 
 # Load packages
-from collections import deque
 import numpy as np
 import torch
 import torch.nn as nn
@@ -25,6 +24,7 @@ HIDDEN_NODES = 64
 
 class MyNetwork(nn.Module):
     """ Create a feedforward neural network """
+
     def __init__(self, input_size, output_size, hidden_layer_size):
         super().__init__()
 
@@ -54,14 +54,16 @@ class MyNetwork(nn.Module):
         out = self.output_layer(l2)
         return out
 
+
 def epsilon_greedy(epsilon, values):
     # Explore randomly with probability epsilon, otherwise exploit the best policy for that state
     if np.random.rand() <= epsilon:
         action = np.random.choice(range(len(values.detach().numpy().T)))
     else:
-        action = values.max(1)[1].item()
+        action = values.max(0)[1].item()
 
     return action
+
 
 class AgentQ(object):
     """ Base agent class, used as a parent class
@@ -73,6 +75,7 @@ class AgentQ(object):
             n_actions (int): where we store the number of actions
             last_action (int): last action taken by the agent
     """
+
     def __init__(self, n_actions: int, dim_state: int, lr, N_episodes, discount_factor):
         self.n_actions = n_actions
         self.last_action = None
@@ -85,30 +88,27 @@ class AgentQ(object):
 
     def forward(self, state: np.ndarray, epsilon, grad):
         """ Performs a forward computation """
-        state_tensor = torch.tensor([state],
+        state_tensor = torch.tensor(state,
                                     requires_grad=grad,
                                     dtype=torch.float32)
-        
-
         values = self.network(state_tensor)
 
-        if buffer:
+        if grad:
             return values
         else:
             action = epsilon_greedy(epsilon, values)
 
             return action
-    
+
     def forward_target(self, states: np.ndarray):
         """ Performs a forward computation """
-        state_tensor = torch.tensor([states],
+        state_tensor = torch.tensor(states,
                                     requires_grad=False,
                                     dtype=torch.float32)
 
-        values = self.target_network(state_tensor).max(axis = 2)[0]
-        
-        return values
+        values = self.target_network(state_tensor).max(axis=1)[0]
 
+        return values
 
     def backward(self, values, targets, t, C):
         """ Performs a backward pass on the network """
@@ -120,21 +120,19 @@ class AgentQ(object):
         loss = nn.functional.mse_loss(
             values,
             targets
-            )
+        )
 
         loss.backward()
 
         # Clip gradient norm to 1
         nn.utils.clip_grad_norm_(self.network.parameters(), max_norm=1.)
-
         self.optimizer.step()
-
         if t % C == 0:
             self.target_network.load_state_dict(self.network.state_dict())
 
 
 class Agent(object):
-    ''' Base agent class, used as a parent class
+    """ Base agent class, used as a parent class
 
         Args:
             n_actions (int): number of actions
@@ -142,21 +140,24 @@ class Agent(object):
         Attributes:
             n_actions (int): where we store the number of actions
             last_action (int): last action taken by the agent
-    '''
+    """
+
     def __init__(self, n_actions: int):
         self.n_actions = n_actions
         self.last_action = None
 
     def forward(self, state: np.ndarray):
-        ''' Performs a forward computation '''
+        """ Performs a forward computation """
         pass
 
     def backward(self):
-        ''' Performs a backward pass on the network '''
+        """ Performs a backward pass on the network """
         pass
+
 
 class RandomAgent(Agent):
     """ Agent taking actions uniformly at random, child of the class Agent """
+
     def __init__(self, n_actions: int):
         super(RandomAgent, self).__init__(n_actions)
 
