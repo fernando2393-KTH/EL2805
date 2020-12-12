@@ -18,7 +18,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-N = 64  # Batch size
 HIDDEN_NODES = 64
 
 
@@ -58,7 +57,7 @@ class MyNetwork(nn.Module):
 def epsilon_greedy(epsilon, values):
     # Explore randomly with probability epsilon, otherwise exploit the best policy for that state
     if np.random.rand() <= epsilon:
-        action = np.random.choice(range(len(values.detach().numpy().T)))
+        action = np.random.choice(range(len(values.cpu().detach().numpy().T)))
     else:
         action = values.max(0)[1].item()
 
@@ -76,21 +75,24 @@ class AgentQ(object):
             last_action (int): last action taken by the agent
     """
 
-    def __init__(self, n_actions: int, dim_state: int, lr, N_episodes, discount_factor):
+    def __init__(self, n_actions: int, dim_state: int, lr, N_episodes, discount_factor, dev):
         self.n_actions = n_actions
         self.last_action = None
         # Buffer and network(s) initialization
-        self.network = MyNetwork(input_size=dim_state, output_size=n_actions, hidden_layer_size=HIDDEN_NODES)
-        self.target_network = MyNetwork(input_size=dim_state, output_size=n_actions, hidden_layer_size=HIDDEN_NODES)
+        self.network = MyNetwork(input_size=dim_state, output_size=n_actions, hidden_layer_size=HIDDEN_NODES).to(dev)
+        self.target_network = MyNetwork(input_size=dim_state, output_size=n_actions,
+                                        hidden_layer_size=HIDDEN_NODES).to(dev)
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=lr)
         self.episodes = N_episodes
         self.discount_factor = discount_factor
+        self.dev = dev
 
     def forward(self, state: np.ndarray, epsilon, grad):
         """ Performs a forward computation """
         state_tensor = torch.tensor(state,
                                     requires_grad=grad,
-                                    dtype=torch.float32)
+                                    dtype=torch.float32,
+                                    device=self.dev)
         values = self.network(state_tensor)
 
         if grad:
@@ -104,7 +106,8 @@ class AgentQ(object):
         """ Performs a forward computation """
         state_tensor = torch.tensor(states,
                                     requires_grad=False,
-                                    dtype=torch.float32)
+                                    dtype=torch.float32,
+                                    device=self.dev)
 
         values = self.target_network(state_tensor).max(axis=1)[0]
 

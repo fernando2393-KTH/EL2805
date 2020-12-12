@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from tqdm import trange
 from DQN_agent import RandomAgent, AgentQ
 
-L = 5000  # Size of the experiences buffer
+L = 15000  # Size of the experiences buffer
 N = 64  # Batch size
 MAX_EPS = 0.99  # Maximum value for epsilon
 MIN_EPS = 0.05  # Minimum value for epsilon
@@ -91,18 +91,19 @@ def epsilon_decay(k, N_episodes):
 
 
 def main():
-
+    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("Using", dev)
     # Import and initialize the discrete Lunar Laner Environment
     env = gym.make('LunarLander-v2')
     env.reset()
 
     # Parameters
-    N_episodes = 100  # Number of episodes
-    discount_factor = 0.95  # Value of the discount factor
+    N_episodes = 500  # Number of episodes
+    discount_factor = 0.99  # Value of the discount factor
     n_ep_running_average = 50  # Running average of 50 episodes
     n_actions = env.action_space.n  # Number of available actions
     dim_state = len(env.observation_space.high)  # State dimensionality
-    lr = pow(10, -3)  # Learning rate
+    lr = pow(10, -4)  # Learning rate
 
     # We will use these variables to compute the average episodic reward and
     # the average number of steps per episode
@@ -110,7 +111,7 @@ def main():
     episode_number_of_steps = []  # this list contains the number of steps per episode
 
     # Random agent initialization
-    agent = AgentQ(n_actions, dim_state, lr, N_episodes, discount_factor)
+    agent = AgentQ(n_actions, dim_state, lr, N_episodes, discount_factor, dev)
 
     # Initialize Buffer
     buffer = ExperienceReplayBuffer(maximum_length=L)
@@ -142,20 +143,18 @@ def main():
             if len(buffer) >= N:
                 # Sample N elements from the buffer
                 states, actions, rewards, next_states, dones = buffer.sample_batch(n=N)
-                mask = torch.Tensor(np.multiply(dones,1))
+                mask = torch.tensor(np.multiply(dones,1), device=dev)
                 Q_max = agent.forward_target(next_states)
-                rewards_tensor = torch.Tensor(rewards)
-                targets = (rewards_tensor + (1 - mask) * discount_factor * Q_max).reshape(-1, 1)
-                actions_tensor = torch.LongTensor(actions)
+                rewards_tensor = torch.tensor(rewards, device=dev)
+                targets = (rewards_tensor + (1 - mask) * discount_factor * Q_max).reshape(-1, 1).type(torch.float32)
+                actions_tensor = torch.tensor(actions, device=dev)
                 values = torch.gather(agent.forward(states, i, grad=True), 1, actions_tensor.reshape(-1, 1))
                 agent.backward(values, targets, t, C)
 
             # Update episode reward
             total_episode_reward += reward
-
             # Update state for next iteration
             state = next_state
-            
             t += 1
 
         # Append episode reward and total number of steps
@@ -175,7 +174,7 @@ def main():
                 running_average(episode_number_of_steps, n_ep_running_average)[-1]))
 
     # Save network
-    torch.save(agent.target_network, 'neural-network-1.pt')
+    torch.save(agent.network, 'neural-network-1.pt')
 
     # Plot Rewards and steps
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 9))
