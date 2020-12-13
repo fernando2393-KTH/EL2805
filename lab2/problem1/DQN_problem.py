@@ -147,7 +147,7 @@ def main():
                 Q_max = agent.forward_target(next_states)
                 rewards_tensor = torch.tensor(rewards, device=dev)
                 targets = (rewards_tensor + (1 - mask) * discount_factor * Q_max).reshape(-1, 1).type(torch.float32)
-                actions_tensor = torch.tensor(actions, device=dev)
+                actions_tensor = torch.tensor(actions, device=dev, dtype=torch.int64)
                 values = torch.gather(agent.forward(states, i, grad=True), 1, actions_tensor.reshape(-1, 1))
                 agent.backward(values, targets, t, C)
 
