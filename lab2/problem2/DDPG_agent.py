@@ -21,6 +21,7 @@ from DDPG_soft_updates import soft_updates
 
 HIDDEN_NODES = [400, 200]
 
+
 class PolicyNetwork(nn.Module):
     def __init__(self, input_size, output_size, hidden_units):
         super().__init__()
@@ -47,7 +48,7 @@ class PolicyNetwork(nn.Module):
 class MyNetwork(nn.Module):
     """ Create a feedforward neural network """
 
-    def __init__(self, input_size, output_size, hidden_units):
+    def __init__(self, input_size, output_size, hidden_units, m):
         super().__init__()
 
         # Create input layer with ReLU activation
@@ -55,19 +56,20 @@ class MyNetwork(nn.Module):
         self.input_layer_activation = nn.ReLU()
 
         # Create middle layer with ReLU activation
-        self.middle_layer = nn.Linear(hidden_units[0], hidden_units[1])
+        self.middle_layer = nn.Linear(hidden_units[0] + m, hidden_units[1])
         self.middle_layer_activation = nn.ReLU()
 
         # Create output layer
         self.output_layer = nn.Linear(hidden_units[1], output_size)
         self.output_layer_activation = nn.Tanh()
 
-    def forward(self, x):
+    def forward(self, x, actions):
         # Function used to compute the forward pass
 
         # Compute first layer
         l1 = self.input_layer(x)
         l1 = self.input_layer_activation(l1)
+        l1 = torch.cat((l1, actions), 1)  # Concatenating actions
 
         # Compute second layer
         l2 = self.middle_layer(l1)
@@ -89,13 +91,15 @@ class AgentQ(object):
             last_action (int): last action taken by the agent
     """
 
-    def __init__(self, n_actions: int, dim_state: int, actor_lr, target_lr, N_episodes, discount_factor, mu, sigma, tau, dev):
+    def __init__(self, n_actions: int, dim_state: int, actor_lr, target_lr, N_episodes, discount_factor,
+                 mu, sigma, tau, dev):
         self.n_actions = n_actions
         self.last_action = None
         # Buffer and network(s) initialization
-        self.network = MyNetwork(input_size=dim_state + n_actions, output_size=1, hidden_units=HIDDEN_NODES).to(dev)
-        self.target_network = MyNetwork(input_size=dim_state + n_actions, output_size=1,
-                                        hidden_units=HIDDEN_NODES).to(dev)
+        self.network = MyNetwork(input_size=dim_state, output_size=1, hidden_units=HIDDEN_NODES,
+                                 m=n_actions).to(dev)
+        self.target_network = MyNetwork(input_size=dim_state, output_size=1,
+                                        hidden_units=HIDDEN_NODES, m=n_actions).to(dev)
         self.policy_network = PolicyNetwork(input_size=dim_state, output_size=n_actions,
                                             hidden_units=HIDDEN_NODES).to(dev)
         self.target_policy_network = PolicyNetwork(input_size=dim_state, output_size=n_actions,
@@ -111,14 +115,14 @@ class AgentQ(object):
         self.sigma = sigma
         self.tau = tau
 
-    def forward(self, state: np.ndarray, grad):
+    def forward(self, state: np.ndarray, action, grad):
         """ Performs a forward computation """
         state_tensor = torch.tensor(state,
                                     requires_grad=grad,
                                     dtype=torch.float32,
                                     device=self.dev)
         if grad:
-            return self.network(state_tensor)
+            return self.network(state_tensor, action)
         else:
             action = self.policy_network(state_tensor).detach().numpy() + self.n
 
@@ -132,10 +136,7 @@ class AgentQ(object):
                                     device=self.dev)
 
         actions_tensor = self.target_policy_network(state_tensor).type(torch.int64)
-
-        net_input = torch.cat((state_tensor, actions_tensor), 1)
-
-        values = self.target_network(net_input)
+        values = self.target_network(state_tensor, actions_tensor)
 
         return values
 
@@ -143,7 +144,7 @@ class AgentQ(object):
         self.n = -self.mu * self.n + \
                  np.random.multivariate_normal(np.zeros(self.m), pow(self.sigma, 2) * np.identity(self.m))
 
-    def backward(self, values, targets, t, C):
+    def backward(self, values, targets):
         """ Performs a backward pass on the network """
         # Compute gradient and Perform backward pass (backpropagation)
         # Training process, set gradients to 0
@@ -160,16 +161,14 @@ class AgentQ(object):
         # Clip gradient norm to 1
         nn.utils.clip_grad_norm_(self.network.parameters(), max_norm=1.)
         self.optimizer.step()
-        if t % C == 0:
-            self.target_network.load_state_dict(self.network.state_dict())
 
-    def policy_backward(self, states, N):
+    def policy_backward(self, states, N, action):
         state_tensor = torch.tensor(states,
                                     requires_grad=False,
                                     dtype=torch.float32,
                                     device=self.dev)
         self.policy_optimizer.zero_grad()
-        jacobian = -1/N * sum([torch.gather(self.network(state_tensor), 1, self.policy_network(state_tensor))])
+        jacobian = -1/N * sum(self.network(state_tensor, action))
         jacobian.backward()
         # Clip gradient norm to 1
         nn.utils.clip_grad_norm_(self.policy_network.parameters(), max_norm=1.)

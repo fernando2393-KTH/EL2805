@@ -24,7 +24,6 @@ from DDPG_agent import RandomAgent, AgentQ
 
 L = 30000  # Size of the experiences buffer
 N = 64  # Batch size
-C = int(L / N)
 
 
 class ExperienceReplayBuffer(object):
@@ -128,7 +127,7 @@ def main():
         while not done:
             agent.noise()  # Compute noise for iteration t
             # Take a random action
-            action = agent.forward(state, grad=False)  # Compute possible actions
+            action = agent.forward(state, None, grad=False)  # Compute possible actions
 
             # Get next state and reward. The done variable
             # will be True if you reached the goal position,
@@ -140,16 +139,16 @@ def main():
             if len(buffer) >= N:
                 # Sample N elements from the buffer
                 states, actions, rewards, next_states, dones = buffer.sample_batch(n=N)
-                mask = torch.tensor(np.multiply(dones, 1), device=dev)
+                actions = torch.tensor(actions, dtype=torch.float32, device=dev)
+                mask = torch.tensor(np.multiply(dones, 1), device=dev).reshape(-1, 1)
                 Q_max = agent.forward_target(next_states)
-                rewards_tensor = torch.tensor(rewards, device=dev)
-                targets = (rewards_tensor + (1 - mask) * discount_factor * Q_max).reshape(-1, 1).type(torch.float32)
-                net_input = states + actions
-                values = agent.forward(net_input, grad=True)
-                agent.backward(values, targets, t, C)
+                rewards_tensor = torch.tensor(rewards, device=dev).reshape(-1, 1)
+                targets = (rewards_tensor + (1 - mask) * discount_factor * Q_max).type(torch.float32)
+                values = agent.forward(states, actions, grad=True)
+                agent.backward(values, targets)
 
                 if t % d == 0:
-                    agent.policy_backward(states, N)
+                    agent.policy_backward(states, N, actions)
 
             # Update episode reward
             total_episode_reward += reward
@@ -173,6 +172,8 @@ def main():
             running_average(episode_reward_list, n_ep_running_average)[-1],
             running_average(episode_number_of_steps, n_ep_running_average)[-1]))
 
+    # Save network
+    torch.save(agent.network, 'neural-network-2.pt')
 
     # Plot Rewards and steps
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 9))
@@ -194,6 +195,7 @@ def main():
     ax[1].legend()
     ax[1].grid(alpha=0.3)
     plt.show()
+
 
 if __name__ == "__main__":
     main()
