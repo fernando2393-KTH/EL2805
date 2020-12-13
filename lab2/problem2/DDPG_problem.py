@@ -19,7 +19,7 @@ import numpy as np
 import gym
 import torch
 import matplotlib.pyplot as plt
-from tqdm import trange
+from tqdm import trange, tqdm
 from DDPG_agent import RandomAgent, AgentQ
 
 L = 30000  # Size of the experiences buffer
@@ -112,6 +112,17 @@ def main():
 
     # Initialize Buffer
     buffer = ExperienceReplayBuffer(maximum_length=L)
+    random_agent = RandomAgent(m)
+    state = env.reset()
+    for _ in tqdm(range(L)):
+        # Take a random action
+        action = random_agent.forward(state)  # Compute a random action
+        next_state, reward, done, _ = env.step(action)
+        experience = (state, action, reward, next_state, done)  # Create the experience
+        buffer.append(experience)  # Append the experience to the buffer
+        state = next_state
+    # Close environment
+    env.close()
 
     # Training process
     EPISODES = trange(N_episodes, desc='Episode: ', leave=True)
@@ -195,6 +206,7 @@ def main():
     ax[1].set_title('Total number of steps vs Episodes')
     ax[1].legend()
     ax[1].grid(alpha=0.3)
+    plt.savefig('Result_problem2.png')
     plt.show()
 
 

@@ -180,7 +180,7 @@ class AgentQ(object):
                                     device=self.dev)
         action = self.actor_network(state_tensor)
         self.actor_optimizer.zero_grad()
-        jacobian = -1 / N * sum(self.critic_network(state_tensor, action))
+        jacobian = -torch.mean(self.critic_network(state_tensor, action))
         jacobian.backward()
         # Clip gradient norm to 1
         nn.utils.clip_grad_norm_(self.actor_network.parameters(), max_norm=1.)
