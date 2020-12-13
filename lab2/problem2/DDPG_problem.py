@@ -109,7 +109,7 @@ def main():
     episode_number_of_steps = []
 
     # Random agent initialization
-    agent = AgentQ(m, dim_state, lr, N_episodes, discount_factor, dev)
+    agent = AgentQ(m, dim_state, lr_actor, lr_critic, N_episodes, discount_factor, mu, sigma, tau, dev)
 
     # Initialize Buffer
     buffer = ExperienceReplayBuffer(maximum_length=L)
@@ -129,6 +129,7 @@ def main():
             agent.noise()  # Compute noise for iteration t
             # Take a random action
             action = agent.forward(state, grad=False)  # Compute possible actions
+
             # Get next state and reward. The done variable
             # will be True if you reached the goal position,
             # False otherwise
@@ -143,8 +144,8 @@ def main():
                 Q_max = agent.forward_target(next_states)
                 rewards_tensor = torch.tensor(rewards, device=dev)
                 targets = (rewards_tensor + (1 - mask) * discount_factor * Q_max).reshape(-1, 1).type(torch.float32)
-                actions_tensor = torch.tensor(actions, device=dev, dtype=torch.int64)
-                values = torch.gather(agent.forward(states, grad=True), 1, actions_tensor.reshape(-1, 1))
+                net_input = states + actions
+                values = agent.forward(net_input, grad=True)
                 agent.backward(values, targets, t, C)
 
                 if t % d == 0:

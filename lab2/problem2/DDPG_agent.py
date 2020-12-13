@@ -19,17 +19,18 @@ import torch
 import torch.nn as nn
 from DDPG_soft_updates import soft_updates
 
+HIDDEN_NODES = [400, 200]
 
 class PolicyNetwork(nn.Module):
-    def __init__(self, input_size, output_size, hidden_layer_size):
+    def __init__(self, input_size, output_size, hidden_units):
         super().__init__()
 
         # Create input layer with ReLU activation
-        self.input_layer = nn.Linear(input_size, hidden_layer_size)
+        self.input_layer = nn.Linear(input_size, hidden_units[0])
         self.input_layer_activation = nn.ReLU()
 
         # Create output layer
-        self.output_layer = nn.Linear(hidden_layer_size, output_size)
+        self.output_layer = nn.Linear(hidden_units[0], output_size)
 
     def forward(self, x):
         # Function used to compute the forward pass
@@ -88,24 +89,24 @@ class AgentQ(object):
             last_action (int): last action taken by the agent
     """
 
-    def __init__(self, n_actions: int, dim_state: int, actor_lr, target_lr, N_episodes, discount_factor, m, mu, sigma, tau, dev):
+    def __init__(self, n_actions: int, dim_state: int, actor_lr, target_lr, N_episodes, discount_factor, mu, sigma, tau, dev):
         self.n_actions = n_actions
         self.last_action = None
         # Buffer and network(s) initialization
-        self.network = MyNetwork(input_size=dim_state, output_size=n_actions, hidden_layer_size=HIDDEN_NODES).to(dev)
-        self.target_network = MyNetwork(input_size=dim_state, output_size=n_actions,
-                                        hidden_layer_size=HIDDEN_NODES).to(dev)
+        self.network = MyNetwork(input_size=dim_state + n_actions, output_size=1, hidden_units=HIDDEN_NODES).to(dev)
+        self.target_network = MyNetwork(input_size=dim_state + n_actions, output_size=1,
+                                        hidden_units=HIDDEN_NODES).to(dev)
         self.policy_network = PolicyNetwork(input_size=dim_state, output_size=n_actions,
-                                            hidden_layer_size=HIDDEN_NODES).to(dev)
+                                            hidden_units=HIDDEN_NODES).to(dev)
         self.target_policy_network = PolicyNetwork(input_size=dim_state, output_size=n_actions,
-                                                   hidden_layer_size=HIDDEN_NODES).to(dev)
+                                                   hidden_units=HIDDEN_NODES).to(dev)
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=actor_lr)
         self.policy_optimizer = torch.optim.Adam(self.policy_network.parameters(), lr=target_lr)
         self.episodes = N_episodes
         self.discount_factor = discount_factor
         self.dev = dev
-        self.m = m
-        self.n = np.zeros(m)
+        self.m = n_actions
+        self.n = np.zeros(n_actions)
         self.mu = mu
         self.sigma = sigma
         self.tau = tau
@@ -119,7 +120,7 @@ class AgentQ(object):
         if grad:
             return self.network(state_tensor)
         else:
-            action = self.policy_network(state_tensor) + self.n
+            action = self.policy_network(state_tensor).detach().numpy() + self.n
 
             return action
 
@@ -129,8 +130,12 @@ class AgentQ(object):
                                     requires_grad=False,
                                     dtype=torch.float32,
                                     device=self.dev)
-        actions_tensor = self.target_policy_network(state_tensor)
-        values = torch.gather(self.target_network(state_tensor), 1, actions_tensor)
+
+        actions_tensor = self.target_policy_network(state_tensor).type(torch.int64)
+
+        net_input = torch.cat((state_tensor, actions_tensor), 1)
+
+        values = self.target_network(net_input)
 
         return values
 
