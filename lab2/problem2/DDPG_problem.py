@@ -121,11 +121,10 @@ def main():
         done = False
         state = env.reset()
         total_episode_reward = 0.
-        t = 1
+        t = 0
         agent.n = np.zeros(agent.m)  # Reset noise in each episode
 
         while not done:
-            agent.noise()  # Compute noise for iteration t
             # Take a random action
             action = agent.forward(state, None, grad=False)  # Compute possible actions
 
@@ -148,13 +147,14 @@ def main():
                 agent.backward(values, targets)
 
                 if t % d == 0:
-                    agent.policy_backward(states, N, actions)
+                    agent.policy_backward(states, N)
 
             # Update episode reward
             total_episode_reward += reward
             # Update state for next iteration
             state = next_state
             t += 1
+            agent.noise()  # Update noise
 
         # Append episode reward and total number of steps
         episode_reward_list.append(total_episode_reward)

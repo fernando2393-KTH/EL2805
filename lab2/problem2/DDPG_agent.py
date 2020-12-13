@@ -134,7 +134,8 @@ class AgentQ(object):
         if grad:
             return self.critic_network(state_tensor, action)
         else:
-            action = self.actor_network(state_tensor).detach().numpy() + self.n
+            action = self.actor_network(state_tensor).cpu().detach().numpy() + self.n
+            action = np.clip(action, -1, 1)
 
             return action
 
@@ -172,19 +173,20 @@ class AgentQ(object):
         nn.utils.clip_grad_norm_(self.critic_network.parameters(), max_norm=1.)
         self.critic_optimizer.step()
 
-    def policy_backward(self, states, N, action):
+    def policy_backward(self, states, N):
         state_tensor = torch.tensor(states,
-                                    requires_grad=False,
+                                    requires_grad=True,
                                     dtype=torch.float32,
                                     device=self.dev)
+        action = self.actor_network(state_tensor)
         self.actor_optimizer.zero_grad()
         jacobian = -1 / N * sum(self.critic_network(state_tensor, action))
         jacobian.backward()
         # Clip gradient norm to 1
         nn.utils.clip_grad_norm_(self.actor_network.parameters(), max_norm=1.)
         self.actor_optimizer.step()
-        soft_updates(self.actor_network, self.target_actor_network, self.tau)
-        soft_updates(self.critic_network, self.target_critic_network, self.tau)
+        self.target_actor_network = soft_updates(self.actor_network, self.target_actor_network, self.tau)
+        self.target_critic_network = soft_updates(self.critic_network, self.target_critic_network, self.tau)
 
 
 class Agent(object):
