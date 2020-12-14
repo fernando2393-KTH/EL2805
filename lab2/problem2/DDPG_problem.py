@@ -121,8 +121,8 @@ def main():
         experience = (state, action, reward, next_state, done)  # Create the experience
         buffer.append(experience)  # Append the experience to the buffer
         state = next_state
-    # Close environment
-    env.close()
+        if done:
+            state = env.reset()
 
     # Training process
     EPISODES = trange(N_episodes, desc='Episode: ', leave=True)
