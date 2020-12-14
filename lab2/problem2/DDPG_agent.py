@@ -43,7 +43,7 @@ class CriticNetwork(nn.Module):
         # Compute first layer
         l1 = self.input_layer(x)
         l1 = self.input_layer_activation(l1)
-        l1 = torch.cat((l1, actions), 1)  # Concatenating actions
+        l1 = torch.cat([l1, actions], 1)  # Concatenating actions
 
         # Compute second layer
         l2 = self.middle_layer(l1)
@@ -146,7 +146,7 @@ class AgentQ(object):
                                     dtype=torch.float32,
                                     device=self.dev)
 
-        actions_tensor = self.target_actor_network(state_tensor).type(torch.int64)
+        actions_tensor = self.target_actor_network(state_tensor).type(torch.float32)
         values = self.target_critic_network(state_tensor, actions_tensor)
 
         return values
@@ -173,7 +173,7 @@ class AgentQ(object):
         nn.utils.clip_grad_norm_(self.critic_network.parameters(), max_norm=1.)
         self.critic_optimizer.step()
 
-    def policy_backward(self, states, N):
+    def policy_backward(self, states):
         state_tensor = torch.tensor(states,
                                     requires_grad=True,
                                     dtype=torch.float32,

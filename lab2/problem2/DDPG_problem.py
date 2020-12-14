@@ -158,7 +158,7 @@ def main():
                 agent.backward(values, targets)
 
                 if t % d == 0:
-                    agent.policy_backward(states, N)
+                    agent.policy_backward(states)
 
             # Update episode reward
             total_episode_reward += reward
@@ -184,8 +184,8 @@ def main():
             running_average(episode_number_of_steps, n_ep_running_average)[-1]))
 
     # Save network
-    torch.save(agent.actor_network, 'neural-network-2-actor.pt')
-    torch.save(agent.critic_network, 'neural-network-2-critic.pt')
+    torch.save(agent.actor_network, 'neural-network-2-actor.pth')
+    torch.save(agent.critic_network, 'neural-network-2-critic.pth')
 
     # Plot Rewards and steps
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 9))

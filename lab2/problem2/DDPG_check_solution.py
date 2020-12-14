@@ -33,10 +33,10 @@ def running_average(x, N):
 
 # Load model
 try:
-    model = torch.load('neural-network-2-actor.pt')
+    model = torch.load('neural-network-2-actor.pth')
     print('Network model: {}'.format(model))
 except:
-    print('File neural-network-2-actor.pt not found!')
+    print('File neural-network-2-actor.pth not found!')
     exit(-1)
 
 # Import and initialize Mountain Car Environment

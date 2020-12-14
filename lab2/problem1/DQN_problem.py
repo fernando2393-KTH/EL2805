@@ -99,7 +99,7 @@ def main():
 
     # Parameters
     N_episodes = 500  # Number of episodes
-    discount_factor = 0.99  # Value of the discount factor
+    discount_factor = 1  # Value of the discount factor
     n_ep_running_average = 50  # Running average of 50 episodes
     n_actions = env.action_space.n  # Number of available actions
     dim_state = len(env.observation_space.high)  # State dimensionality
@@ -174,7 +174,7 @@ def main():
                 running_average(episode_number_of_steps, n_ep_running_average)[-1]))
 
     # Save network
-    torch.save(agent.network, 'neural-network-1.pt')
+    torch.save(agent.network, 'neural-network-1-gamma-0_01.pth')
 
     # Plot Rewards and steps
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 9))
