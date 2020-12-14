@@ -151,9 +151,9 @@ def main():
                 states, actions, rewards, next_states, dones = buffer.sample_batch(n=N)
                 actions = torch.tensor(actions, dtype=torch.float32, device=dev)
                 mask = torch.tensor(np.multiply(dones, 1), device=dev).reshape(-1, 1)
-                Q_max = agent.forward_target(next_states)
+                Q_prime = agent.forward_target(next_states)
                 rewards_tensor = torch.tensor(rewards, device=dev).reshape(-1, 1)
-                targets = (rewards_tensor + (1 - mask) * discount_factor * Q_max).type(torch.float32)
+                targets = (rewards_tensor + (1 - mask) * discount_factor * Q_prime).type(torch.float32)
                 values = agent.forward(states, actions, grad=True)
                 agent.backward(values, targets)
 
