@@ -123,8 +123,9 @@ def main():
             # Take a random action
             state_tensor = torch.tensor(state, device=dev, dtype=torch.float32)
             mu_t, sigma_square_t = agent.forward_actor(state_tensor)  # Compute possible actions
+            print(sigma_square_t * torch.eye(m))
             action = torch.distributions.multivariate_normal.MultivariateNormal(mu_t,
-                                                                                sigma_square_t * torch.eye(m)
+                                                                                sigma_square_t * torch.eye(m).to(dev)
                                                                                 ).sample()
 
             pdf_old = computePDF(mu_t[0], sigma_square_t[0], action[0]) * computePDF(mu_t[1], sigma_square_t[1],
