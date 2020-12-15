@@ -160,8 +160,8 @@ class AgentQ(object):
 
     def backward_actor(self, states, actions, psi, pdfs_old):
         mu_t, sigma_square_t = self.actor_network(states)  # Compute possible actions
-        pdf = computePDF(mu_t[:, 0], sigma_square_t[:, 0], actions[:, 0]) * \
-            computePDF(mu_t[:, 1], sigma_square_t[:, 1], actions[:, 1])
+        pdf = (computePDF(mu_t[:, 0], sigma_square_t[:, 0], actions[:, 0]) *
+               computePDF(mu_t[:, 1], sigma_square_t[:, 1], actions[:, 1])).reshape(-1, 1)
         r_theta = pdf / pdfs_old
         clip = torch.clamp(r_theta, (1 - self.epsilon), (1 + self.epsilon))
         j = torch.min(r_theta * psi, clip * psi)

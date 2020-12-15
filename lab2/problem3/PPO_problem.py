@@ -115,62 +115,49 @@ def main():
         state = env.reset()
         total_episode_reward = 0.
         t = 0
-
         # Initialize Buffer
         buffer = ExperienceReplayBuffer(maximum_length=L)
-
         while not done:
             # Take a random action
             state_tensor = torch.tensor(state, device=dev, dtype=torch.float32)
             mu_t, sigma_square_t = agent.forward_actor(state_tensor)  # Compute possible actions
-            print(sigma_square_t * torch.eye(m))
             action = torch.distributions.multivariate_normal.MultivariateNormal(mu_t,
                                                                                 sigma_square_t * torch.eye(m).to(dev)
                                                                                 ).sample()
-
             pdf_old = computePDF(mu_t[0], sigma_square_t[0], action[0]) * computePDF(mu_t[1], sigma_square_t[1],
-                                                                                     action[1]).detach()
-
+                                                                                     action[1])
             # Get next state and reward. The done variable
             # will be True if you reached the goal position,
             # False otherwise
             next_state, reward, done, _ = env.step(action.cpu().detach().numpy())
             experience = (pdf_old, state, action, reward, next_state, done)  # Create the experience
             buffer.append(experience)  # Append the experience to the buffer
-
             # Update episode reward
             total_episode_reward += reward
-
             # Update state for next iteration
             state = next_state
             t += 1
-
         # Get params from buffer
         pdfs_old, states, actions, rewards, next_states, _ = buffer.sample_batch(n=t)
-        pdfs_old_tensor = torch.tensor(pdfs_old, dtype=torch.float32, device=dev)
+        pdfs_old_tensor = torch.tensor(pdfs_old, dtype=torch.float32, device=dev).reshape(-1, 1)
         states_tensor = torch.tensor(states, dtype=torch.float32, device=dev)
         actions_tensor = torch.stack(actions)
-        discount = np.array([pow(discount_factor, i) for i in range(t)])
-
-        # Compute targets
         targets_list = np.zeros(t)
         for idx in range(t):
-            targets_list[idx] = discount[: (t - idx)] @ rewards[idx:]
-            
+            for jdx in range(idx, t):
+                targets_list[idx] += pow(discount_factor, (jdx - idx)) * rewards[jdx]
         targets = torch.tensor(targets_list, device=dev, dtype=torch.float32).reshape(-1, 1)
-
         for n in range(M):
             # Compute values
             values = agent.forward_critic(states_tensor)
             # Update w (critic network)
-            agent.backward_critic(targets.detach(), values)
+            agent.backward_critic(targets, values)
             # Recompute values in order to perform a second backward pass
             values = agent.forward_critic(states_tensor)
             # Compute Psi
             psi = targets - values
             # Update theta (actor network)
             agent.backward_actor(states_tensor, actions_tensor, psi, pdfs_old_tensor)
-
             # Append episode reward
         episode_reward_list.append(total_episode_reward)
         episode_number_of_steps.append(t)
