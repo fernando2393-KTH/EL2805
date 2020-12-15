@@ -124,10 +124,11 @@ def main():
             state_tensor = torch.tensor(state, device=dev, dtype=torch.float32)
             mu_t, sigma_square_t = agent.forward_actor(state_tensor)  # Compute possible actions
             action = torch.distributions.multivariate_normal.MultivariateNormal(mu_t,
-                                                                                torch.diag(sigma_square_t)).sample()
+                                                                                sigma_square_t * torch.eye(m)
+                                                                                ).sample()
 
             pdf_old = computePDF(mu_t[0], sigma_square_t[0], action[0]) * computePDF(mu_t[1], sigma_square_t[1],
-                                                                                     action[1])
+                                                                                     action[1]).detach()
 
             # Get next state and reward. The done variable
             # will be True if you reached the goal position,
@@ -148,11 +149,12 @@ def main():
         pdfs_old_tensor = torch.tensor(pdfs_old, dtype=torch.float32, device=dev)
         states_tensor = torch.tensor(states, dtype=torch.float32, device=dev)
         actions_tensor = torch.stack(actions)
+        discount = np.array([pow(discount_factor, i) for i in range(t)])
+
         # Compute targets
         targets_list = np.zeros(t)
         for idx in range(t):
-            for jdx in range(idx, t):
-                targets_list[idx] = pow(discount_factor, (jdx - idx)) * rewards[jdx]
+            targets_list[idx] = discount[: (t - idx)] @ rewards[idx:]
             
         targets = torch.tensor(targets_list, device=dev, dtype=torch.float32).reshape(-1, 1)
 
@@ -160,7 +162,7 @@ def main():
             # Compute values
             values = agent.forward_critic(states_tensor)
             # Update w (critic network)
-            agent.backward_critic(targets, values)
+            agent.backward_critic(targets.detach(), values)
             # Recompute values in order to perform a second backward pass
             values = agent.forward_critic(states_tensor)
             # Compute Psi
