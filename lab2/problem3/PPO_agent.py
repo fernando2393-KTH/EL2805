@@ -19,8 +19,8 @@ import torch
 import torch.nn as nn
 
 HIDDEN_NODES = [400, 200]
-computePDF = lambda mu, sigma_square, action: pow(2 * np.pi * sigma_square, -1 / 2) * torch.exp(
-    - pow(action - mu, 2) / (2 * sigma_square))
+computePDF = lambda mu, sigma_square, action: torch.pow(2 * np.pi * sigma_square, -1 / 2) * torch.exp(
+    - torch.pow(action - mu, 2) / (2 * sigma_square))
 
 
 class CriticNetwork(nn.Module):
@@ -144,7 +144,6 @@ class AgentQ(object):
         """ Performs a backward pass on the network """
         # Compute gradient and Perform backward pass (backpropagation)
         # Training process, set gradients to 0
-        self.critic_optimizer.zero_grad()
 
         # Compute loss function
         loss = nn.functional.mse_loss(
@@ -152,6 +151,7 @@ class AgentQ(object):
             targets
         )
 
+        self.critic_optimizer.zero_grad()
         loss.backward()
 
         # Clip gradient norm to 1
@@ -160,16 +160,14 @@ class AgentQ(object):
 
     def backward_actor(self, states, actions, psi, pdfs_old):
         mu_t, sigma_square_t = self.actor_network(states)  # Compute possible actions
-        # mu_t = mu_t.cpu().detach().numpy()
-        # sigma_square_t = sigma_square_t.cpu().detach().numpy()
         pdf = computePDF(mu_t[:, 0], sigma_square_t[:, 0], actions[:, 0]) * \
-              computePDF(mu_t[:, 1], sigma_square_t[:, 1], actions[:, 1])
+            computePDF(mu_t[:, 1], sigma_square_t[:, 1], actions[:, 1])
         r_theta = pdf / pdfs_old
-        clip = torch.clip(r_theta, (1 - self.epsilon), (1 + self.epsilon))
-        print(r_theta)
+        clip = torch.clamp(r_theta, (1 - self.epsilon), (1 + self.epsilon))
+        j = torch.min(r_theta * psi, clip * psi)
+        loss = - torch.mean(j)
         # Compute loss
         self.actor_optimizer.zero_grad()
-        loss = - torch.mean(torch.min(r_theta.reshape(-1, 1) * psi, clip.reshape(-1, 1) * psi))
         loss.backward()
         # Clip gradient norm to 1
         nn.utils.clip_grad_norm_(self.actor_network.parameters(), max_norm=1.)

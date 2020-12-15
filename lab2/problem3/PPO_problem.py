@@ -123,11 +123,8 @@ def main():
             # Take a random action
             state_tensor = torch.tensor(state, device=dev, dtype=torch.float32)
             mu_t, sigma_square_t = agent.forward_actor(state_tensor)  # Compute possible actions
-            # mu_t = mu_t.cpu().detach().numpy()
-            # sigma_square_t = sigma_square_t.cpu().detach().numpy()
-            # action = np.random.multivariate_normal(mu_t, sigma_square_t * np.identity(m))
             action = torch.distributions.multivariate_normal.MultivariateNormal(mu_t,
-                                                                                torch.diag(sigma_square_t)).rsample()
+                                                                                torch.diag(sigma_square_t)).sample()
 
             pdf_old = computePDF(mu_t[0], sigma_square_t[0], action[0]) * computePDF(mu_t[1], sigma_square_t[1],
                                                                                      action[1])
@@ -146,19 +143,20 @@ def main():
             state = next_state
             t += 1
 
-        for n in range(M):
-            # Get params from buffer
-            pdfs_old, states, actions, rewards, next_states, _ = buffer.sample_batch(n=t)
-            pdfs_old_tensor = torch.tensor(pdfs_old, dtype=torch.float32, device=dev)
-            states_tensor = torch.tensor(states, dtype=torch.float32, device=dev)
-            actions_tensor = torch.stack(actions)
-            # Compute targets
-            targets_list = np.zeros(t)
-            for idx in range(t):
-                for jdx in range(idx, t):
-                    targets_list[idx] += pow(discount_factor, (jdx - idx)) * rewards[jdx]
+        # Get params from buffer
+        pdfs_old, states, actions, rewards, next_states, _ = buffer.sample_batch(n=t)
+        pdfs_old_tensor = torch.tensor(pdfs_old, dtype=torch.float32, device=dev)
+        states_tensor = torch.tensor(states, dtype=torch.float32, device=dev)
+        actions_tensor = torch.stack(actions)
+        # Compute targets
+        targets_list = np.zeros(t)
+        for idx in range(t):
+            for jdx in range(idx, t):
+                targets_list[idx] = pow(discount_factor, (jdx - idx)) * rewards[jdx]
+            
+        targets = torch.tensor(targets_list, device=dev, dtype=torch.float32).reshape(-1, 1)
 
-            targets = torch.tensor(targets_list, device=dev, dtype=torch.float32).reshape(-1, 1)
+        for n in range(M):
             # Compute values
             values = agent.forward_critic(states_tensor)
             # Update w (critic network)
