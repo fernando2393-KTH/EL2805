@@ -24,6 +24,7 @@ from PPO_agent import RandomAgent, AgentQ
 
 M = 100
 L = 30000
+THRESHOLD = 200
 computePDF = lambda mu, sigma_square, action: torch.pow(2 * np.pi * sigma_square, -1 / 2) * torch.exp(
     - torch.pow(action - mu, 2) / (2 * sigma_square))
 
@@ -174,14 +175,17 @@ def main():
                 running_average(episode_reward_list, n_ep_running_average)[-1],
                 running_average(episode_number_of_steps, n_ep_running_average)[-1]))
 
+        if running_average(episode_reward_list, n_ep_running_average)[-1] > THRESHOLD:  # Early stopping
+            break
+
     # Save network
     torch.save(agent.actor_network, 'neural-network-3-actor.pth')
     torch.save(agent.critic_network, 'neural-network-3-critic.pth')
 
     # Plot Rewards and steps
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 9))
-    ax[0].plot([i for i in range(1, N_episodes + 1)], episode_reward_list, label='Episode reward')
-    ax[0].plot([i for i in range(1, N_episodes + 1)], running_average(
+    ax[0].plot([i for i in range(1, len(episode_reward_list) + 1)], episode_reward_list, label='Episode reward')
+    ax[0].plot([i for i in range(1, len(episode_reward_list) + 1)], running_average(
         episode_reward_list, n_ep_running_average), label='Avg. episode reward')
     ax[0].set_xlabel('Episodes')
     ax[0].set_ylabel('Total reward')
@@ -189,8 +193,8 @@ def main():
     ax[0].legend()
     ax[0].grid(alpha=0.3)
 
-    ax[1].plot([i for i in range(1, N_episodes + 1)], episode_number_of_steps, label='Steps per episode')
-    ax[1].plot([i for i in range(1, N_episodes + 1)], running_average(
+    ax[1].plot([i for i in range(1, len(episode_number_of_steps) + 1)], episode_number_of_steps, label='Steps per episode')
+    ax[1].plot([i for i in range(1, len(episode_number_of_steps) + 1)], running_average(
         episode_number_of_steps, n_ep_running_average), label='Avg. number of steps per episode')
     ax[1].set_xlabel('Episodes')
     ax[1].set_ylabel('Total number of steps')
