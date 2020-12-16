@@ -138,6 +138,7 @@ def main():
             # Update state for next iteration
             state = next_state
             t += 1
+
         # Get params from buffer
         pdfs_old, states, actions, rewards, next_states, _ = buffer.sample_batch(n=t)
         pdfs_old_tensor = torch.tensor(pdfs_old, dtype=torch.float32, device=dev).reshape(-1, 1)
@@ -148,18 +149,24 @@ def main():
             for jdx in range(idx, t):
                 targets_list[idx] += pow(discount_factor, (jdx - idx)) * rewards[jdx]
         targets = torch.tensor(targets_list, device=dev, dtype=torch.float32).reshape(-1, 1)
+
+        # Compute values
+        values = agent.forward_critic(states_tensor)
+
+        # Compute Psi
+        psi = targets - values
+
         for n in range(M):
             # Compute values
             values = agent.forward_critic(states_tensor)
+            
             # Update w (critic network)
             agent.backward_critic(targets, values)
-            # Recompute values in order to perform a second backward pass
-            values = agent.forward_critic(states_tensor)
-            # Compute Psi
-            psi = targets - values
+            
             # Update theta (actor network)
-            agent.backward_actor(states_tensor, actions_tensor, psi, pdfs_old_tensor)
-            # Append episode reward
+            agent.backward_actor(states_tensor, actions_tensor, psi.detach(), pdfs_old_tensor)
+        
+        # Append episode reward
         episode_reward_list.append(total_episode_reward)
         episode_number_of_steps.append(t)
 
