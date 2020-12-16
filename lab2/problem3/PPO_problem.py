@@ -22,9 +22,9 @@ import matplotlib.pyplot as plt
 from tqdm import trange
 from PPO_agent import RandomAgent, AgentQ
 
-M = 100
+M = 10
 L = 30000
-THRESHOLD = 200
+THRESHOLD = 1000
 computePDF = lambda mu, sigma_square, action: torch.pow(2 * np.pi * sigma_square, -1 / 2) * torch.exp(
     - torch.pow(action - mu, 2) / (2 * sigma_square))
 
@@ -95,7 +95,7 @@ def main():
     discount_factor = 0.99  # Value of gamma
     n_ep_running_average = 50  # Running average of 20 episodes
     m = len(env.action_space.high)  # dimensionality of the action
-    epsilon = 0.2
+    epsilon = 0.8
     lr_critic = pow(10, -3)
     lr_actor = pow(10, -5)
     dim_state = len(env.observation_space.high)  # State dimensionality
@@ -150,21 +150,21 @@ def main():
                 targets_list[idx] += pow(discount_factor, (jdx - idx)) * rewards[jdx]
         targets = torch.tensor(targets_list, device=dev, dtype=torch.float32).reshape(-1, 1)
 
-        # Compute values
-        values = agent.forward_critic(states_tensor)
-
-        # Compute Psi
-        psi = targets - values
-
         for n in range(M):
             # Compute values
             values = agent.forward_critic(states_tensor)
             
             # Update w (critic network)
             agent.backward_critic(targets, values)
+
+            # Compute values
+            values = agent.forward_critic(states_tensor)
+
+            # Compute Psi
+            psi = targets - values
             
             # Update theta (actor network)
-            agent.backward_actor(states_tensor, actions_tensor, psi.detach(), pdfs_old_tensor)
+            agent.backward_actor(states_tensor, actions_tensor, psi, pdfs_old_tensor)
         
         # Append episode reward
         episode_reward_list.append(total_episode_reward)
@@ -186,8 +186,8 @@ def main():
             break
 
     # Save network
-    torch.save(agent.actor_network, 'neural-network-3-actor.pth')
-    torch.save(agent.critic_network, 'neural-network-3-critic.pth')
+    torch.save(agent.actor_network, 'neural-network-3-actor-08-epsilon.pth')
+    torch.save(agent.critic_network, 'neural-network-3-critic-08-epsilon.pth')
 
     # Plot Rewards and steps
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 9))
@@ -208,7 +208,7 @@ def main():
     ax[1].set_title('Total number of steps vs Episodes')
     ax[1].legend()
     ax[1].grid(alpha=0.3)
-    plt.savefig('Result_problem3.png')
+    plt.savefig('Result_problem3-08-epsilon.png')
     plt.show()
 
 
