@@ -17,13 +17,13 @@ def main():
             mat[idx, jdx] = model_critic(state).item()
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    y, w = np.meshgrid(y, w)
+    y, w = np.meshgrid(y, w, sparse=False, indexing='ij')
     # Plot the surface.
     ax.plot_surface(y, w, mat, cmap=cm.coolwarm, edgecolor='none')
-    ax.set_xlabel('y')
-    ax.set_ylabel('w')
-    ax.set_zlabel(r'$Q_w(s(y,w),\pi_\theta(s(y,w)))$')
-    ax.set_title(r'$Q_w(s(y,w),\pi_\theta(s(y,w)))$')
+    ax.set_xlabel('height (y)')
+    ax.set_ylabel('angle (w)')
+    ax.set_zlabel(r'$V_w(s(y,w))$')
+    ax.set_title(r'$V_w(s(y,w))$')
     plt.show()
 
     y = np.linspace(0, 1.5, 100)
@@ -35,13 +35,13 @@ def main():
             mat_actor[idx, jdx] = model_actor(state)[0][1].item()
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    y, w = np.meshgrid(y, w)
+    y, w = np.meshgrid(y, w, sparse=False, indexing='ij')
     # Plot the surface.
     ax.plot_surface(y, w, mat_actor, cmap='viridis', edgecolor='none')
-    ax.set_xlabel('y')
-    ax.set_ylabel('w')
+    ax.set_xlabel('height (y)')
+    ax.set_ylabel('angle (w)')
     ax.set_zlabel('Engine Direction')
-    ax.set_title(r'$\pi_\theta(s(y,w))_2$')
+    ax.set_title(r'$\mu_\theta(s(y,w))_2$')
     plt.show()
 
 

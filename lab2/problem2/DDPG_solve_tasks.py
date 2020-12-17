@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from matplotlib import cm
-
+from mpl_toolkits.mplot3d import Axes3D
 
 def main():
     np.random.seed(1337)
@@ -17,11 +17,11 @@ def main():
             mat[idx, jdx] = model_critic(state, model_actor(state)).item()
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    y, w = np.meshgrid(y, w)
+    y, w = np.meshgrid(y, w, sparse=False, indexing='ij')
     # Plot the surface.
     ax.plot_surface(y, w, mat, cmap=cm.coolwarm, edgecolor='none')
-    ax.set_xlabel('y')
-    ax.set_ylabel('w')
+    ax.set_xlabel('height (y)')
+    ax.set_ylabel('angle (w)')
     ax.set_zlabel(r'$Q_w(s(y,w),\pi_\theta(s(y,w)))$')
     ax.set_title(r'$Q_w(s(y,w),\pi_\theta(s(y,w)))$')
     plt.show()
@@ -35,11 +35,11 @@ def main():
             mat_actor[idx, jdx] = model_actor(state)[1].item()
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    y, w = np.meshgrid(y, w)
+    y, w = np.meshgrid(y, w, sparse=False, indexing='ij')
     # Plot the surface.
     ax.plot_surface(y, w, mat_actor, cmap='viridis', edgecolor='none')
-    ax.set_xlabel('y')
-    ax.set_ylabel('w')
+    ax.set_xlabel('height (y)')
+    ax.set_ylabel('angle (w)')
     ax.set_zlabel('Engine Direction')
     ax.set_title(r'$\pi_\theta(s(y,w))_2$')
     plt.show()

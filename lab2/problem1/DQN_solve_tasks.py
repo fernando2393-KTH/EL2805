@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from matplotlib import cm
-
+from mpl_toolkits.mplot3d import Axes3D
 
 def main():
     np.random.seed(1337)
@@ -16,13 +16,14 @@ def main():
             mat[idx, jdx] = model(state).max(0)[1].item()  # Argmax
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    y, w = np.meshgrid(y, w)
+    y, w = np.meshgrid(y, w, sparse=False, indexing='ij')
     # Plot the surface.
     ax.plot_surface(y, w, mat, cmap='viridis', edgecolor='none')
-    ax.set_xlabel('y')
-    ax.set_ylabel('w')
+    ax.set_xlabel('height (y)')
+    ax.set_ylabel('angle (w)')
     ax.set_zlabel(r'$\argmax_a Q(s(y,w),a)$')
     ax.set_title(r'$\argmax_a Q(s(y,w),a)$')
+    plt.savefig("argmax.png")
     plt.show()
 
     y = np.linspace(0, 1.5, 100)
@@ -34,13 +35,14 @@ def main():
             mat[idx, jdx] = model(state).max(0)[0].item()  # Max
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    y, w = np.meshgrid(y, w)
+    y, w =  np.meshgrid(y, w, sparse=False, indexing='ij')
     # Plot the surface.
     ax.plot_surface(y, w, mat, cmap=cm.coolwarm, edgecolor='none')
-    ax.set_xlabel('y')
-    ax.set_ylabel('w')
+    ax.set_xlabel('height (y)')
+    ax.set_ylabel('angle (w)')
     ax.set_zlabel(r'$\max_a Q(s(y,w),a)$')
     ax.set_title(r'$\max_a Q(s(y,w),a)$')
+    plt.savefig("max.png")
     plt.show()
 
 
