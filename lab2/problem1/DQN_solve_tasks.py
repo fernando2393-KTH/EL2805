@@ -1,8 +1,15 @@
+"""
+@Authors:
+Fernando Garcia Sanz - 970718-0312
+Gustavo Teodoro Döhler Beck - 940218-0195
+"""
+
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
+
 
 def main():
     np.random.seed(1337)
@@ -35,7 +42,7 @@ def main():
             mat[idx, jdx] = model(state).max(0)[0].item()  # Max
     fig = plt.figure()
     ax = fig.gca(projection='3d')
-    y, w =  np.meshgrid(y, w, sparse=False, indexing='ij')
+    y, w = np.meshgrid(y, w, sparse=False, indexing='ij')
     # Plot the surface.
     ax.plot_surface(y, w, mat, cmap=cm.coolwarm, edgecolor='none')
     ax.set_xlabel('height (y)')

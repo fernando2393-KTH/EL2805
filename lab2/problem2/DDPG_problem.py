@@ -13,6 +13,12 @@
 # Last update: 20th November 2020, by alessior@kth.se
 #
 
+"""
+@Authors:
+Fernando Garcia Sanz - 970718-0312
+Gustavo Teodoro Döhler Beck - 940218-0195
+"""
+
 # Load packages
 from collections import deque
 import numpy as np

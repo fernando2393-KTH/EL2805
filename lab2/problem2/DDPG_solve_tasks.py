@@ -1,3 +1,9 @@
+"""
+@Authors:
+Fernando Garcia Sanz - 970718-0312
+Gustavo Teodoro Döhler Beck - 940218-0195
+"""
+
 import numpy as np
 import torch
 import matplotlib.pyplot as plt

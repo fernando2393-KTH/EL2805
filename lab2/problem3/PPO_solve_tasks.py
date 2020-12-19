@@ -1,8 +1,15 @@
+"""
+@Authors:
+Fernando Garcia Sanz - 970718-0312
+Gustavo Teodoro Döhler Beck - 940218-0195
+"""
+
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
+
 
 def main():
     np.random.seed(1337)
